@@ -102,11 +102,18 @@ df_aapc <- bind_rows(df_aapc_incidence, df_aapc_dalys) |>
          Measure = case_when(measure == 'Incidence' ~ 'Incidence',
                              measure == 'DALYs (Disability-Adjusted Life Years)' ~ 'DALYs'),
          `AAPC (95%CI)` = paste0(AAPC, '(', CI_lower, '~', CI_upper, ')'),
-         `p value` = P_value)
+         `p value` = P_value) |> 
+  select(Measure, Year, `AAPC (95%CI)`, `p value`) |>
+  pivot_wider(names_from = Measure,
+              values_from = c(`AAPC (95%CI)`, `p value`)) |> 
+  select(Year, `AAPC (95%CI)_Incidence`, `p value_Incidence`,
+         `AAPC (95%CI)_DALYs`, `p value_DALYs`)
 
-write.csv(df_aapc,
-          '../outcome/table_1_global_aapc.csv',
-          row.names = FALSE)
+# save to md file
+markdown_table <- knitr::kable(df_aapc,
+                               format = "markdown",
+                               col.names = c('Year', 'Incidence, AAPC (95%CI)', 'p value', 'DALYs, AAPC (95%CI)', 'p value'))
+write(markdown_table, '../outcome/table_1_global_trend.md')
 
 ## incidence visualization ------------------------------------------------
 
@@ -191,7 +198,7 @@ df_jp_apc <- jp_model$apc |>
                          apc, '(', apc_95_lcl, '~', apc_95_ucl, ')', p_value_label))
 
 # get breaks of y axis
-breaks <- pretty(c(data$val, data$lower, data$upper))
+breaks <- pretty(c(data$val, data$lower, data$upper*1.2))
 
 fig_2 <- ggplot(data)+
   geom_vline(data = df_jp_apc,
@@ -222,10 +229,10 @@ fig_2 <- ggplot(data)+
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         legend.position="inside",
-        legend.position.inside = c(0.5, 0.99),
-        legend.justification = c(0.5, 1),
+        legend.position.inside = c(0.99, 0.99),
+        legend.justification = c(1, 1),
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nrow = 1))+
+  guides(fill = guide_legend(nrow = 2))+
   labs(x = NULL,
        y = 'DALYs (Disability-Adjusted Life Years)',
        fill = "APC (95% CI)",
@@ -233,11 +240,11 @@ fig_2 <- ggplot(data)+
 
 # save --------------------------------------------------------------------
 
-fig <- fig_1 + fig_2
+fig <- fig_1 / fig_2
 
 ggsave('../outcome/fig_1_global_trend.pdf',
        plot = fig,
-       width = 12,
-       height = 5,
+       width = 5,
+       height = 8,
        device = cairo_pdf,
        family = 'Helvetica')

@@ -1,13 +1,17 @@
 
 # loading packages --------------------------------------------------------
 
+library(MASS)
 library(tidyverse)
+library(openxlsx)
 
 # data --------------------------------------------------------------------
 
 df_raw_number <- read.csv('../data/database/global_regional_number.csv')
 
 df_raw_rate <- read.csv('../data/database/global_regional_rate.csv')
+
+df_region_list <- read.csv('../data/region.csv')
 
 ## get incidence, incidence rate, DALYs, DALYs rate
 df_global_number <- df_raw_number |> 
@@ -16,53 +20,119 @@ df_global_number <- df_raw_number |>
 df_global_rate <- df_raw_rate |>
   filter(measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence'))
 
-df_global <- bind_rows(df_global_number, df_global_rate)
+df_global <- bind_rows(df_global_number, df_global_rate) |> 
+  mutate(location_name = str_remove(location_name, ' - WB'),
+         # remove ' SDI' in region name
+         location_name = str_remove(location_name, ' SDI'),
+         # replace DALYs (Disability-Adjusted Life Years) with DALYs
+         measure_name = str_replace(measure_name, 'DALYs \\(Disability-Adjusted Life Years\\)', 'DALYs'))
 
 rm(df_raw_number, df_raw_rate, df_global_number, df_global_rate)
 
-## subset data
+## regional data --------------------------------------------------------
 df_region_number <- df_global |> 
   filter(sex_name == 'Both' & 
            age_name == '20+ years' &
-           metric_name == 'Number') |> 
-  select(location_name, measure_name, year, val, lower, upper) |> 
-  arrange(measure_name, location_name, year)
+           metric_name == 'Number' &
+           location_name %in% df_region_list$Region) |>
+  select(location_name, metric_name, measure_name, year, val, lower, upper) |> 
+  arrange(measure_name, location_name, year) |> 
+  rename(Index = location_name)
 
 df_region_number_label <- df_region_number |> 
   filter(year %in% c(1990, 2019, 2021)) |> 
   # format number: romove decimals and add comma
   mutate(across(c(val, lower, upper), ~round(., 0)),
          across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
-         label = paste0(val, '\n(', lower, '~', upper, ')')) |> 
-  select(-val, -lower, -upper)
+         Index = factor(Index, levels = df_region_list$Region),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |> 
+  select(-val, -lower, -upper) |> 
+  arrange(measure_name, Index, year)
 
 df_region_rate <- df_global |> 
   filter(sex_name == 'Both' & 
            age_name == '20+ years' &
-           metric_name == 'Rate') |>
-  select(location_name, measure_name, year, val, lower, upper) |>
-  arrange(measure_name, location_name, year)
+           metric_name == 'Rate' &
+           location_name %in% df_region_list$Region) |>
+  select(location_name, metric_name, measure_name, year, val, lower, upper) |>
+  arrange(measure_name, location_name, year) |> 
+  rename(Index = location_name)
 
 df_region_rate_label <- df_region_rate |>
   filter(year %in% c(1990, 2019, 2021)) |> 
-  # format number: round to 2 decimals
+  # format number: romove decimals and add comma
   mutate(across(c(val, lower, upper), ~round(., 2)),
-         label = paste0(val, '\n(', lower, '~', upper, ')')) |> 
-  select(-val, -lower, -upper)
+         across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
+         Index = factor(Index, levels = df_region_list$Region),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |> 
+  select(-val, -lower, -upper) |> 
+  arrange(measure_name, Index, year)
 
-# global trends -----------------------------------------------------------
+## sex data ------------------------------------------------
+
+df_sex_number <- df_global |> 
+  filter(location_name == 'Global' & 
+           age_name == '20+ years' &
+           sex_name != 'Both' &
+           metric_name == 'Number') |> 
+  select(sex_name, metric_name, measure_name, year, val, lower, upper) |>
+  arrange(measure_name, sex_name, year) |> 
+  rename(Index = sex_name)
+
+df_sex_number_label <- df_sex_number |> 
+  filter(year %in% c(1990, 2019, 2021)) |> 
+  # format number: romove decimals and add comma
+  mutate(across(c(val, lower, upper), ~round(., 0)),
+         across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |>
+  select(-val, -lower, -upper) |>
+  arrange(measure_name, Index, year)
+
+df_sex_rate <- df_global |> 
+  filter(location_name == 'Global' & 
+           age_name == '20+ years' &
+           sex_name != 'Both' &
+           metric_name == 'Rate') |>
+  select(sex_name, metric_name, measure_name, year, val, lower, upper) |>
+  arrange(measure_name, sex_name, year) |> 
+  rename(Index = sex_name)
+
+df_sex_rate_label <- df_sex_rate |> 
+  filter(year %in% c(1990, 2019, 2021)) |> 
+  # format number: romove decimals and add comma
+  mutate(across(c(val, lower, upper), ~round(., 2)),
+         across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |>
+  select(-val, -lower, -upper) |>
+  arrange(measure_name, Index, year)
+
+## bind data -----------------------------------------------------------
+
+df_label <- bind_rows(df_region_number_label, df_region_rate_label,
+                      df_sex_number_label, df_sex_rate_label) |> 
+  mutate(title = paste(metric_name, measure_name, year)) |> 
+  select(title, Index, label) |> 
+  pivot_wider(names_from = title,
+              values_from = label) |> 
+  mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
+                                          'High', "High-middle", "Middle", "Low-middle", "Low",
+                                          "East Asia & Pacific", "Europe & Central Asia", "Latin America & Caribbean",
+                                          "Middle East & North Africa", "South Asia", "Sub-Saharan Africa"))) |> 
+  arrange(Index)
+
+# AAPC -----------------------------------------------------------
 
 ## calculate AAPC
-calculate_aapc <- function(data, measure, start_year, end_year) {
+calculate_aapc <- function(data, measure_set) {
   data_filtered <- data |> 
-    filter(measure_name == measure & year >= start_year & year <= end_year) |> 
+    filter(measure == measure_set) |>
     arrange(year)
   
   # get log value
   # data_filtered$log_val <- log(data_filtered$val)
   # model <- lm(log_val ~ year, data = data_filtered)
   # model <- glm(val ~ year, family = poisson(link = "log"), data = data_filtered)
-  model <- glm.nb(val ~ year, data = data_filtered)
+  model <- MASS::glm.nb(val ~ year, data = data_filtered)
   
   # extract slope, se, p_value
   slope <- coef(model)["year"]
@@ -73,6 +143,7 @@ calculate_aapc <- function(data, measure, start_year, end_year) {
   aapc <- (exp(slope) - 1) * 100
   ci_lower <- (exp(slope - 1.96 * slope_se) - 1) * 100
   ci_upper <- (exp(slope + 1.96 * slope_se) - 1) * 100
+
   
   # return result
   result <- list(
@@ -85,178 +156,59 @@ calculate_aapc <- function(data, measure, start_year, end_year) {
 }
 
 
-df_global_trend <- df_global |> 
-  filter(sex_name == 'Both' & age_name == '20+ years') |> 
-  arrange(measure_name, year) |> 
-  filter(measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence'))
+df_global_trend <- rbind(df_region_rate, df_sex_rate) |> 
+  # combined Index, metric_name, measure_name
+  mutate(measure = paste(Index, metric_name, measure_name, sep = '--'))
 
-## calculate AAPC
-var_years <- c(1990, 1999, 2009, 2019, 2021)
-var_measures <- c('Incidence', 'DALYs (Disability-Adjusted Life Years)')
-
-df_aapc_incidence <- data.frame(year_start = var_years[-length(var_years)],
-                                year_end = var_years[-1],
-                                measure = 'Incidence') |> 
+df_aapc <- data.frame(measure = unique(df_global_trend$measure)) |> 
   rowwise() |> 
-  mutate(aapc_results = map2(year_start, year_end, ~calculate_aapc(df_global_trend, measure, .x, .y))) |> 
+  mutate(aapc_results = map(measure, ~calculate_aapc(df_global_trend, .x))) |> 
   unnest_wider(col = aapc_results) |> 
   # round result
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2))) |>
-  mutate(P_value = case_when(P_value < 0.001 ~ '<0.001',
-                             TRUE ~ as.character(round(P_value, 3))))
-
-df_aapc_dalys <- data.frame(year_start = var_years[-length(var_years)],
-                            year_end = var_years[-1],
-                            measure = 'DALYs (Disability-Adjusted Life Years)') |> 
-  rowwise() |> 
-  mutate(aapc_results = map2(year_start, year_end, ~calculate_aapc(df_global_trend, measure, .x, .y))) |> 
-  unnest_wider(col = aapc_results) |> 
-  # round result
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2))) |>
-  mutate(P_value = case_when(P_value < 0.001 ~ '<0.001',
-                             TRUE ~ as.character(round(P_value, 3))))
-
-df_aapc <- bind_rows(df_aapc_incidence, df_aapc_dalys) |> 
-  mutate(Year = paste0(year_start, '~', year_end),
-         Measure = case_when(measure == 'Incidence' ~ 'Incidence',
-                             measure == 'DALYs (Disability-Adjusted Life Years)' ~ 'DALYs'),
-         `AAPC (95%CI)` = paste0(AAPC, '(', CI_lower, '~', CI_upper, ')'),
-         `p value` = P_value)
-
-write.csv(df_aapc,
-          '../outcome/table_1_global_aapc.csv',
-          row.names = FALSE)
-
-## incidence visualization ------------------------------------------------
-
-data <- filter(df_global_trend, measure_name == 'Incidence')
-
-jp_model <- joinpoint(data,
-                      year,
-                      val,
-                      run_opt = run_opt,
-                      export_opt = export_opt)
-df_jp_apc <- jp_model$apc |> 
-  # round result
-  mutate(across(c(apc, apc_95_lcl, apc_95_ucl), ~round(., 2)),
-         p_value = as.numeric(p_value),
-         p_value_label = case_when(p_value < 0.001 ~ '***',
-                                   p_value < 0.01 ~ '**',
-                                   p_value < 0.05 ~ '*',
-                                   TRUE ~ ''),
-         legend = paste0(segment_start, '~', segment_end, '\n',
-                         apc, '(', apc_95_lcl, '~', apc_95_ucl, ')', p_value_label))
-
-# get breaks of y axis
-breaks <- pretty(c(data$val, data$lower, data$upper))
-
-fig_1 <- ggplot(data)+
-  geom_vline(data = df_jp_apc,
-             mapping = aes(xintercept = segment_end),
-             alpha = 0.5,
-             color = 'grey50')+
-  geom_rect(data = df_jp_apc,
-            aes(xmin = segment_start, xmax = segment_end,
-                ymin = 0, ymax = 0.1*max(breaks),
-                fill = legend),
-            alpha = 0.5)+
-  geom_line(mapping = aes(x = year, y = val),
-            color = "#00798CFF") +
-  geom_ribbon(mapping = aes(ymin = lower, ymax = upper,
-                            x = year, y = val),
-              fill ="#00798CFF",
-              alpha = 0.7)+
-  scale_x_continuous(limits = c(1990, 2021),
-                     breaks = seq(1990, 2021, 5),
-                     expand = expansion(add = c(0, 1))) +
-  scale_y_continuous(limit = range(breaks),
-                     breaks = breaks,
-                     expand = expansion(mult = c(0, 0)),
-                     labels = scientific_10) +
-  scale_fill_manual(values = paletteer_d("PrettyCols::Lucent"))+
-  theme_bw()+
-  theme(plot.title.position = 'plot',
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position="inside",
-        legend.position.inside = c(0.01, 0.11),
-        legend.justification = c(0, 0),
-        legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nrow = 2))+
-  labs(x = NULL,
-       y = 'Incidence',
-       fill = "APC (95% CI)",
-       title = 'A')
-
-## DALYs visualization -----------------------------------------------------
-
-data <- filter(df_global_trend, measure_name == 'DALYs (Disability-Adjusted Life Years)')
-
-jp_model <- joinpoint(data,
-                      year,
-                      val,
-                      run_opt = run_opt,
-                      export_opt = export_opt)
-
-df_jp_apc <- jp_model$apc |>
-  # round result
-  mutate(across(c(apc, apc_95_lcl, apc_95_ucl), ~round(., 2)),
-         p_value = as.numeric(p_value),
-         p_value_label = case_when(p_value < 0.001 ~ '***',
-                                   p_value < 0.01 ~ '**',
-                                   p_value < 0.05 ~ '*',
-                                   TRUE ~ ''),
-         legend = paste0(segment_start, '~', segment_end, '\n',
-                         apc, '(', apc_95_lcl, '~', apc_95_ucl, ')', p_value_label))
-
-# get breaks of y axis
-breaks <- pretty(c(data$val, data$lower, data$upper))
-
-fig_2 <- ggplot(data)+
-  geom_vline(data = df_jp_apc,
-             mapping = aes(xintercept = segment_end),
-             alpha = 0.5,
-             color = 'grey50')+
-  geom_rect(data = df_jp_apc,
-            aes(xmin = segment_start, xmax = segment_end,
-                ymin = 0, ymax = 0.1*max(breaks),
-                fill = legend),
-            alpha = 0.5)+
-  geom_line(mapping = aes(x = year, y = val),
-            color = "#00798CFF") +
-  geom_ribbon(mapping = aes(ymin = lower, ymax = upper,
-                            x = year, y = val),
-              fill ="#00798CFF",
-              alpha = 0.7)+
-  scale_x_continuous(limits = c(1990, 2021),
-                     breaks = seq(1990, 2021, 5),
-                     expand = expansion(add = c(0, 1))) +
-  scale_y_continuous(limit = range(breaks),
-                     breaks = breaks,
-                     expand = expansion(mult = c(0, 0)),
-                     labels = scientific_10) +
-  scale_fill_manual(values = paletteer_d("PrettyCols::Lucent"))+
-  theme_bw()+
-  theme(plot.title.position = 'plot',
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position="inside",
-        legend.position.inside = c(0.5, 0.99),
-        legend.justification = c(0.5, 1),
-        legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nrow = 1))+
-  labs(x = NULL,
-       y = 'DALYs (Disability-Adjusted Life Years)',
-       fill = "APC (95% CI)",
-       title = 'B')
+  mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2)),
+         P_value = case_when(P_value < 0.001 ~ '<0.001',
+                             TRUE ~ as.character(round(P_value, 3))),
+         `AAPC (95%CI)` = paste0(AAPC, '<br>(', CI_lower, '~', CI_upper, ')'),
+         `p value` = P_value) |> 
+  select(measure, `AAPC (95%CI)`, `p value`) |> 
+  # split measure
+  separate(measure, c('Index', 'metric_name', 'measure_name'), sep = '--') |>
+  pivot_longer(cols = c(`AAPC (95%CI)`, `p value`), names_to = 'variable', values_to = 'value') |>
+  # combined measure_name and metric_name
+  mutate(title = paste(metric_name, measure_name, variable, sep = '-')) |>
+  select(title, Index, value) |>
+  pivot_wider(names_from = title,
+              values_from = value) |> 
+  mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
+                                          'High', "High-middle", "Middle", "Low-middle", "Low",
+                                          "East Asia & Pacific", "Europe & Central Asia", "Latin America & Caribbean",
+                                          "Middle East & North Africa", "South Asia", "Sub-Saharan Africa"))) |> 
+  arrange(Index)
 
 # save --------------------------------------------------------------------
 
-fig <- fig_1 + fig_2
+df_output <- df_label |> 
+  left_join(df_aapc, by = 'Index') |> 
+  select(Index,
+         `Number Incidence 1990`, `Rate Incidence 1990`,
+         `Number Incidence 2019`, `Rate Incidence 2019`,
+         `Number Incidence 2021`, `Rate Incidence 2021`,
+         `Rate-Incidence-AAPC (95%CI)`, `Rate-Incidence-p value`,
+         `Number DALYs 1990`, `Rate DALYs 1990`,
+         `Number DALYs 2019`, `Rate DALYs 2019`,
+         `Number DALYs 2021`, `Rate DALYs 2021`,
+         `Rate-DALYs-AAPC (95%CI)`, `Rate-DALYs-p value`)
 
-ggsave('../outcome/fig_1_global_trend.pdf',
-       plot = fig,
-       width = 12,
-       height = 5,
-       device = cairo_pdf,
-       family = 'Helvetica')
+# save to md file
+markdown_table <- knitr::kable(df_output,
+                               format = "markdown",
+                               col.names = c('Group',
+                                             'Incidence, 1990', 'Incidence rate (per 100,000), 1990',
+                                             'Incidence, 2019', 'Incidence rate (per 100,000), 2019',
+                                             'Incidence, 2021', 'Incidence rate (per 100,000), 2021',
+                                             'AAPC (95%CI), 1990-2021', 'p value',
+                                             'DALYs, 1990', 'DALYs rate (per 100,000), 1990',
+                                             'DALYs, 2019', 'DALYs rate (per 100,000), 2019',
+                                             'DALYs, 2021', 'DALYs rate (per 100,000), 2021',
+                                             'AAPC (95%CI), 1990-2021', 'p value'))
+write(markdown_table, '../outcome/table_2_regional_trend.md')
