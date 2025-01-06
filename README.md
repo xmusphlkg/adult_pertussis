@@ -14,3 +14,8 @@ https://vizhub.healthdata.org/gbd-results?params=gbd-api-2021-public/d794bf7176a
 | Sex          | `Both sexes`, `Male`, `Female`                               |
 | Year         | `1980-2021`                                                  |
 
+# Method
+
+1. 计算AAPC
+
+2. 使用Bayesian age-period-cohort (BAPC) model 预测未来趋势
