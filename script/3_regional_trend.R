@@ -106,15 +106,58 @@ df_sex_rate_label <- df_sex_rate |>
   select(-val, -lower, -upper) |>
   arrange(measure_name, Index, year)
 
+## age data --------------------------------------------------------
+
+df_age_number <- df_global |> 
+  filter(location_name == 'Global' &
+           sex_name == 'Both' &
+           metric_name == 'Number' &
+           age_name %in% c('20-24 years', '25-29 years', '30-34 years', '35-39 years',
+                           '40-44 years', '45-49 years', '50-54 years', '55+ years')) |>
+  select(age_name, metric_name, measure_name, year, val, lower, upper) |>
+  arrange(measure_name, age_name, year) |>
+  rename(Index = age_name)
+
+df_age_number_label <- df_age_number |>
+  filter(year %in% c(1990, 2019, 2021)) |> 
+  # format number: romove decimals and add comma
+  mutate(across(c(val, lower, upper), ~round(., 0)),
+         across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |>
+  select(-val, -lower, -upper) |>
+  arrange(measure_name, Index, year)
+
+df_age_rate <- df_global |>
+  filter(location_name == 'Global' &
+           sex_name == 'Both' &
+           metric_name == 'Rate' &
+           age_name %in% c('20-24 years', '25-29 years', '30-34 years', '35-39 years',
+                           '40-44 years', '45-49 years', '50-54 years', '55+ years')) |>
+  select(age_name, metric_name, measure_name, year, val, lower, upper) |>
+  arrange(measure_name, age_name, year) |>
+  rename(Index = age_name)
+
+df_age_rate_label <- df_age_rate |>
+  filter(year %in% c(1990, 2019, 2021)) |> 
+  # format number: romove decimals and add comma
+  mutate(across(c(val, lower, upper), ~round(., 2)),
+         across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
+         label = paste0(val, '<br>(', lower, '~', upper, ')')) |>
+  select(-val, -lower, -upper) |>
+  arrange(measure_name, Index, year)
+  
 ## bind data -----------------------------------------------------------
 
 df_label <- bind_rows(df_region_number_label, df_region_rate_label,
-                      df_sex_number_label, df_sex_rate_label) |> 
+                      df_sex_number_label, df_sex_rate_label,
+                      df_age_number_label, df_age_rate_label) |>
   mutate(title = paste(metric_name, measure_name, year)) |> 
   select(title, Index, label) |> 
   pivot_wider(names_from = title,
               values_from = label) |> 
   mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
+                                          '20-24 years', '25-29 years', '30-34 years', '35-39 years',
+                                          '40-44 years', '45-49 years', '50-54 years', '55+ years',
                                           'High', "High-middle", "Middle", "Low-middle", "Low",
                                           "East Asia & Pacific", "Europe & Central Asia", "Latin America & Caribbean",
                                           "Middle East & North Africa", "South Asia", "Sub-Saharan Africa"))) |> 
@@ -156,7 +199,7 @@ calculate_aapc <- function(data, measure_set) {
 }
 
 
-df_global_trend <- rbind(df_region_rate, df_sex_rate) |> 
+df_global_trend <- rbind(df_region_rate, df_sex_rate, df_age_rate) |>
   # combined Index, metric_name, measure_name
   mutate(measure = paste(Index, metric_name, measure_name, sep = '--'))
 
@@ -181,6 +224,8 @@ df_aapc <- data.frame(measure = unique(df_global_trend$measure)) |>
               values_from = value) |> 
   mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
                                           'High', "High-middle", "Middle", "Low-middle", "Low",
+                                          '20-24 years', '25-29 years', '30-34 years', '35-39 years',
+                                          '40-44 years', '45-49 years', '50-54 years', '55+ years',
                                           "East Asia & Pacific", "Europe & Central Asia", "Latin America & Caribbean",
                                           "Middle East & North Africa", "South Asia", "Sub-Saharan Africa"))) |> 
   arrange(Index)
