@@ -234,3 +234,9 @@ ggsave('../outcome/fig_2_national_trend.pdf',
        height = 15.5,
        device = cairo_pdf,
        family = 'Helvetica')
+
+write.xlsx(list('Incidence rate' = df_incidence_2021,
+                'DALYs rate' = df_dalys_2021,
+                'AAPC of incidence rate' = df_incidence_aapc,
+                'AAPC of DALYs rate' = df_dalys_aapc),
+           '../outcome/fig_2_national_trend.xlsx')
