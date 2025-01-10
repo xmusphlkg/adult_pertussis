@@ -57,7 +57,7 @@ df_map_iso <- df_map_iso |>
             by = c('location_id' = 'Location.ID'))
 
 ## get incidence rate, DALYs rate
-df_incidence <- rbind(df_raw_dalys_male, df_raw_dalys_female) |>
+df_incidence <- rbind(df_raw_incidence_male, df_raw_incidence_female) |>
   rename(location_id = location) |>
   filter(age_name %in% c('20-24 years', '25-29 years', '30-34 years', '35-39 years',
                          '40-44 years', '45-49 years', '50-54 years', '55+ years') &
@@ -220,7 +220,7 @@ plot_map <- function(data, i) {
     scale_x_continuous(limits = c(-180, 180),
                        expand = c(0, 0)) + 
     scale_y_continuous(limits = c(-60, 75)) +
-    scale_fill_gradientn(colors = paletteer_d("MoMAColors::ustwo", direction = -1),
+    scale_fill_gradientn(colors = paletteer_d("MoMAColors::ustwo", direction = 1),
                          breaks = seq(0, 1, 0.2),
                          labels = scales::percent_format(accuracy = 1),
                          limits = c(0, 1),
@@ -236,7 +236,6 @@ plot_map <- function(data, i) {
           legend.position = 'inside',
           legend.position.inside = c(0.01, 0.01),
           legend.justification = c(0, 0),
-          plot.title = element_text(size = 30),
           plot.title.position = 'plot')+
     labs(title = LETTERS[i*3],
          fill = legend_names[i],
@@ -334,7 +333,8 @@ plot_fun <- function(i){
     labs(title = LETTERS[i*3-2],
          color = NULL,
          x = NULL,
-         y = 'Incidence')
+         y = 'Incidence')+
+    guides(fill = "none", color = guide_legend(title = NULL))
   
   ## visual by age
   breaks <- pretty(c(0, range(data_total$val[data_total$age_name != 'Total'])), n = 5)
@@ -398,8 +398,8 @@ fig_2 <- plot_fun(2)
 # save plot ----------------------------------------------------------------
 
 ggsave('../outcome/fig_3_forecast_trend.pdf',
-       plot = plot_grid(fig_1, fig_2, nrow = 2),
-       width = 12,
-       height = 6,
+       plot = plot_grid(fig_1, fig_2, nrow = 1),
+       width = 22,
+       height = 3,
        device = cairo_pdf,
        family = 'Helvetica')

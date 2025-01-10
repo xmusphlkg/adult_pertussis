@@ -138,6 +138,10 @@ df_jp_apc <- jp_model$apc |>
 # get breaks of y axis
 breaks <- pretty(c(data$val, data$lower, data$upper))
 
+# set colors
+colors <- paletteer_d("PrettyCols::Lucent", n = nrow(df_jp_apc))
+colors <- colors[order(order(df_jp_apc$apc))]
+
 fig_1 <- ggplot(data)+
   geom_vline(data = df_jp_apc,
              mapping = aes(xintercept = segment_end),
@@ -161,16 +165,16 @@ fig_1 <- ggplot(data)+
                      breaks = breaks,
                      expand = expansion(mult = c(0, 0)),
                      labels = scientific_10) +
-  scale_fill_manual(values = paletteer_d("PrettyCols::Lucent"))+
+  scale_fill_manual(values = colors)+
   theme_bw()+
   theme(plot.title.position = 'plot',
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        legend.position="inside",
-        legend.position.inside = c(0.01, 0.11),
-        legend.justification = c(0, 0),
+        legend.position="bottom",
+        legend.justification.bottom = 'right',
+        legend.title.position = 'top',
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nrow = 2))+
+  guides(fill = guide_legend(ncol = 3, byrow = TRUE))+
   labs(x = NULL,
        y = 'Incidence',
        fill = "APC (95% CI)",
@@ -200,6 +204,10 @@ df_jp_apc <- jp_model$apc |>
 # get breaks of y axis
 breaks <- pretty(c(data$val, data$lower, data$upper*1.2))
 
+# set colors
+colors <- paletteer_d("PrettyCols::Lucent", n = nrow(df_jp_apc))
+colors <- colors[order(order(df_jp_apc$apc))]
+
 fig_2 <- ggplot(data)+
   geom_vline(data = df_jp_apc,
              mapping = aes(xintercept = segment_end),
@@ -223,16 +231,16 @@ fig_2 <- ggplot(data)+
                      breaks = breaks,
                      expand = expansion(mult = c(0, 0)),
                      labels = scientific_10) +
-  scale_fill_manual(values = paletteer_d("PrettyCols::Lucent"))+
+  scale_fill_manual(values = colors)+
   theme_bw()+
   theme(plot.title.position = 'plot',
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        legend.position="inside",
-        legend.position.inside = c(0.99, 0.99),
-        legend.justification = c(1, 1),
+        legend.position="bottom",
+        legend.justification.bottom = 'right',
+        legend.title.position = 'top',
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nrow = 2))+
+  guides(fill = guide_legend(nol = 3))+
   labs(x = NULL,
        y = 'DALYs (Disability-Adjusted Life Years)',
        fill = "APC (95% CI)",
@@ -245,6 +253,6 @@ fig <- fig_1 / fig_2
 ggsave('../outcome/fig_1_global_trend.pdf',
        plot = fig,
        width = 5,
-       height = 8,
+       height = 8.5,
        device = cairo_pdf,
        family = 'Helvetica')

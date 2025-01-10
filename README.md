@@ -14,8 +14,12 @@ https://vizhub.healthdata.org/gbd-results?params=gbd-api-2021-public/d794bf7176a
 | Sex          | `Both sexes`, `Male`, `Female`                               |
 | Year         | `1980-2021`                                                  |
 
-# Method
+# Requirement
 
-1. 计算AAPC
+[Application for Windows Batch/Callable Version of Joinpoint Regression Software](https://surveillance.cancer.gov/joinpoint/callable/)
 
-2. 使用Bayesian age-period-cohort (BAPC) model 预测未来趋势
+[Python Release Python 3.10.8 | Python.org](https://www.python.org/downloads/release/python-3108/)
+
+[R 4.4.2: The R Project for Statistical Computing](https://www.r-project.org/)
+
+[DanChaltiel/nih.joinpoint](https://github.com/DanChaltiel/nih.joinpoint/): An R interface to easily use National Institute of Health (NIH)'s 'Joinpoint Regression Software' v4.9.0.0.
