@@ -9,6 +9,8 @@ library(tidyverse)
 library(patchwork)
 library(paletteer)
 library(Cairo)
+library(sf)
+library(cowplot)
 
 # join point setting
 run_opt = run_options(model="ln",
@@ -20,11 +22,24 @@ export_opt = export_options()
 
 # data --------------------------------------------------------------------
 
-df_raw <- read.csv('../data/database/global_regional_number.csv')
+df_number <- read.csv('../data/database/global_regional_number.csv')
+
+df_rate <- read.csv('../data/database/global_regional_rate.csv')
 
 ## get global data
-df_global <- df_raw |> 
-  filter(location_name == 'Global')
+df_global_number <- df_number |> 
+  filter(location_name == 'Global',
+         sex_name == 'Both',
+         age_name == '20+ years',
+         measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence')) |> 
+  arrange(measure_name, year)
+
+df_global_rate <- df_rate |> 
+  filter(location_name == 'Global',
+         sex_name == 'Both',
+         age_name == '20+ years',
+         measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence')) |> 
+  arrange(measure_name, year)
 
 ## fig axis
 scientific_10 <- function(x) {
@@ -65,12 +80,6 @@ calculate_aapc <- function(data, measure, start_year, end_year) {
   return(result)
 }
 
-
-df_global_trend <- df_global |> 
-  filter(sex_name == 'Both' & age_name == '20+ years') |> 
-  arrange(measure_name, year) |> 
-  filter(measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence'))
-
 ## calculate AAPC
 var_years <- c(1990, 1999, 2009, 2019, 2021)
 var_measures <- c('Incidence', 'DALYs (Disability-Adjusted Life Years)')
@@ -79,7 +88,8 @@ df_aapc_incidence <- data.frame(year_start = var_years[-length(var_years)],
                                 year_end = var_years[-1],
                                 measure = 'Incidence') |> 
   rowwise() |> 
-  mutate(aapc_results = map2(year_start, year_end, ~calculate_aapc(df_global_trend, measure, .x, .y))) |> 
+  mutate(aapc_results = map2(year_start, year_end,
+                             ~calculate_aapc(df_global_number, measure, .x, .y))) |> 
   unnest_wider(col = aapc_results) |> 
   # round result
   mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2))) |>
@@ -90,7 +100,8 @@ df_aapc_dalys <- data.frame(year_start = var_years[-length(var_years)],
                             year_end = var_years[-1],
                             measure = 'DALYs (Disability-Adjusted Life Years)') |> 
   rowwise() |> 
-  mutate(aapc_results = map2(year_start, year_end, ~calculate_aapc(df_global_trend, measure, .x, .y))) |> 
+  mutate(aapc_results = map2(year_start, year_end,
+                             ~calculate_aapc(df_global_number, measure, .x, .y))) |> 
   unnest_wider(col = aapc_results) |> 
   # round result
   mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2))) |>
@@ -117,7 +128,7 @@ write(markdown_table, '../outcome/table_1_global_trend.md')
 
 ## incidence visualization ------------------------------------------------
 
-data <- filter(df_global_trend, measure_name == 'Incidence')
+data <- filter(df_global_rate, measure_name == 'Incidence')
 
 jp_model <- joinpoint(data,
                       year,
@@ -163,8 +174,7 @@ fig_1 <- ggplot(data)+
                      expand = expansion(add = c(0, 1))) +
   scale_y_continuous(limit = range(breaks),
                      breaks = breaks,
-                     expand = expansion(mult = c(0, 0)),
-                     labels = scientific_10) +
+                     expand = expansion(mult = c(0, 0))) +
   scale_fill_manual(values = colors)+
   theme_bw()+
   theme(plot.title.position = 'plot',
@@ -176,13 +186,13 @@ fig_1 <- ggplot(data)+
         legend.key.spacing.y = unit(0.35, 'cm'))+
   guides(fill = guide_legend(ncol = 3, byrow = TRUE))+
   labs(x = NULL,
-       y = 'Incidence',
+       y = 'Incidence rate',
        fill = "APC (95% CI)",
        title = 'A')
 
 ## DALYs visualization -----------------------------------------------------
 
-data <- filter(df_global_trend, measure_name == 'DALYs (Disability-Adjusted Life Years)')
+data <- filter(df_global_rate, measure_name == 'DALYs (Disability-Adjusted Life Years)')
 
 jp_model <- joinpoint(data,
                       year,
@@ -229,8 +239,7 @@ fig_2 <- ggplot(data)+
                      expand = expansion(add = c(0, 1))) +
   scale_y_continuous(limit = range(breaks),
                      breaks = breaks,
-                     expand = expansion(mult = c(0, 0)),
-                     labels = scientific_10) +
+                     expand = expansion(mult = c(0, 0))) +
   scale_fill_manual(values = colors)+
   theme_bw()+
   theme(plot.title.position = 'plot',
@@ -240,13 +249,13 @@ fig_2 <- ggplot(data)+
         legend.justification.bottom = 'right',
         legend.title.position = 'top',
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(nol = 3))+
+  guides(fill = guide_legend(ncol = 3, byrow = T))+
   labs(x = NULL,
-       y = 'DALYs (Disability-Adjusted Life Years)',
+       y = 'DALYs rate',
        fill = "APC (95% CI)",
        title = 'B')
 
-# save --------------------------------------------------------------------
+# save trends ------------------------------------------------------------------
 
 fig <- fig_1 / fig_2
 
@@ -256,3 +265,9 @@ ggsave('../outcome/fig_1_global_trend.pdf',
        height = 8.5,
        device = cairo_pdf,
        family = 'Helvetica')
+
+# Appendix -------------------------------------------------------------------
+
+source('../script/2_over_20_percent.R')
+
+source('../script/2_age_trend.R')

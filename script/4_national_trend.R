@@ -124,8 +124,8 @@ df_dalys_aapc <- df_aapc |>
 # visualization -----------------------------------------------------------
 
 df_names <- c('df_incidence_2021', 'df_dalys_2021', 'df_incidence_aapc', 'df_dalys_aapc')
-legend_names <- c('Incidence rate\n(per 100,000), 1990',
-                  'DALYs rate, 1990',
+legend_names <- c('Incidence rate\n(per 100,000), 2021',
+                  'DALYs rate, 2021',
                   'AAPC of incidence rate,\n1990-2021',
                   'AAPC of DALYs rate,\n1990-2021')
 

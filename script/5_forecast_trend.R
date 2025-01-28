@@ -220,7 +220,7 @@ plot_map <- function(data, i) {
     scale_x_continuous(limits = c(-180, 180),
                        expand = c(0, 0)) + 
     scale_y_continuous(limits = c(-60, 75)) +
-    scale_fill_gradientn(colors = paletteer_d("MoMAColors::ustwo", direction = 1),
+    scale_fill_gradientn(colors = paletteer_d("MetBrewer::Hiroshige", direction = 1),
                          breaks = seq(0, 1, 0.2),
                          labels = scales::percent_format(accuracy = 1),
                          limits = c(0, 1),
