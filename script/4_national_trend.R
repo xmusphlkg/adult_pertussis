@@ -38,28 +38,36 @@ df_map <- df_map |>
   bind_rows(somalia_combined)
 
 ## get incidence rate, DALYs rate
-df_incidence <- df_raw_incidence |>
+df_all <- df_raw_incidence |>
+  rbind(df_raw_dalys) |>
   rename(location_id = location) |>
   filter(age_name == '20+ years' &
-           location_id %in% df_map_iso$location_id)
-
-df_dalys <- df_raw_dalys |>
-  rename(location_id = location) |>
-  filter(age_name == '20+ years' &
-           location_id %in% df_map_iso$location_id)
-
-df_all <- bind_rows(df_incidence, df_dalys) |> 
+           location_id %in% df_map_iso$location_id) |> 
   mutate(# replace DALYs (Disability-Adjusted Life Years) with DALYs
          measure_name = str_replace(measure_name, 'DALYs \\(Disability-Adjusted Life Years\\)', 'DALYs')) |> 
   select(location_name, measure_name, year, val, lower, upper)
 
-rm(df_raw_incidence, df_raw_dalys, df_incidence, df_dalys)
+rm(df_raw_incidence, df_raw_dalys)
 
 df_incidence_2021 <- df_all |>
   filter(year == 2021 & measure_name == 'Incidence')
 
 df_dalys_2021 <- df_all |>
   filter(year == 2021 & measure_name == 'DALYs')
+
+df_raw_incidence <- read.csv('../data/database/incidence_number_both.csv')
+
+df_raw_dalys <- read.csv('../data/database/dalys_number_both.csv')
+
+## get incidence number, DALYs number
+df_all_number <- df_raw_incidence |>
+  rbind(df_raw_dalys) |>
+  rename(location_id = location) |>
+  filter(age_name == '20+ years' &
+           location_id %in% df_map_iso$location_id) |> 
+  mutate(# replace DALYs (Disability-Adjusted Life Years) with DALYs
+         measure_name = str_replace(measure_name, 'DALYs \\(Disability-Adjusted Life Years\\)', 'DALYs')) |> 
+  select(location_name, measure_name, year, val, lower, upper)
 
 # AAPC -----------------------------------------------------------
 
@@ -69,11 +77,17 @@ calculate_aapc <- function(data, measure_set) {
     filter(measure == measure_set) |>
     arrange(year)
   
-  # get log value
-  # data_filtered$log_val <- log(data_filtered$val)
-  # model <- lm(log_val ~ year, data = data_filtered)
-  # model <- glm(val ~ year, family = poisson(link = "log"), data = data_filtered)
-  model <- MASS::glm.nb(val ~ year, data = data_filtered)
+  model <- tryCatch({MASS::glm.nb(val ~ year, data = data_filtered)},
+    error = function(e) {
+      print(paste('Model fitting failed:', measure_set))
+      return(NULL)
+    }
+  )
+  
+  # if model fitting failed or total number of cases lower than 10
+  if (is.null(model) | sum(data_filtered$val) < 10) {
+    return(list(AAPC = NA, CI_lower = NA, CI_upper = NA, P_value = NA))
+  }
   
   # extract slope, se, p_value
   slope <- coef(model)["year"]
@@ -96,9 +110,9 @@ calculate_aapc <- function(data, measure_set) {
   return(result)
 }
 
-
-df_all_trend <- df_all |>
-  mutate(measure = paste(location_name, measure_name, sep = '--'))
+df_all_trend <- df_all_number |>
+  mutate(measure = paste(location_name, measure_name, sep = '--'),
+         val = round(val))
 
 df_aapc <- data.frame(measure = unique(df_all_trend$measure)) |> 
   rowwise() |> 
@@ -125,11 +139,11 @@ df_dalys_aapc <- df_aapc |>
 
 df_names <- c('df_incidence_2021', 'df_dalys_2021', 'df_incidence_aapc', 'df_dalys_aapc')
 legend_names <- c('Incidence rate\n(per 100,000), 2021',
-                  'DALYs rate, 2021',
-                  'AAPC of incidence rate,\n1990-2021',
-                  'AAPC of DALYs rate,\n1990-2021')
+                  'DALYs rate\n(per 100,000), 2021',
+                  'AAPC of incidence,\n1990-2021',
+                  'AAPC of DALYs,\n1990-2021')
 
-i <- 1
+i <- 3
 
 ## plot
 plot_map <- function(i) {
@@ -146,7 +160,7 @@ plot_map <- function(i) {
 
   # create legend group
   legend_breaks <- seq(from = pretty(data$val, n = 5)[1],
-                       by = ceiling(diff(range(data$val))/10),
+                       by = ceiling(diff(range(data$val, na.rm = T))/10),
                        length.out = 10)
   data$val_group <- cut(data$val,
                            breaks = legend_breaks,

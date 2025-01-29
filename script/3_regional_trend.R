@@ -211,7 +211,7 @@ df_aapc_1 <- data.frame(measure = unique(df_global_trend$measure)) |>
          P_value = case_when(P_value < 0.001 ~ '***',
                              P_value < 0.01 ~ '**',
                              P_value < 0.05 ~ '*',
-                             TRUE ~ as.character(round(P_value, 3))),
+                             TRUE ~ ''),
          `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |> 
   select(measure, `AAPC (95%CI)\n1990-2019` = `AAPC (95%CI)`)
   
@@ -223,7 +223,7 @@ df_aapc_2 <- data.frame(measure = unique(df_global_trend$measure)) |>
          P_value = case_when(P_value < 0.001 ~ '***',
                              P_value < 0.01 ~ '**',
                              P_value < 0.05 ~ '*',
-                             TRUE ~ as.character(round(P_value, 3))),
+                             TRUE ~ ''),
          `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |>
   select(measure, `AAPC (95%CI)\n2019-2021` = `AAPC (95%CI)`)
   
