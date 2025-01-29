@@ -112,7 +112,9 @@ calculate_aapc <- function(data, measure_set) {
 
 df_all_trend <- df_all_number |>
   mutate(measure = paste(location_name, measure_name, sep = '--'),
-         val = round(val))
+         val = round(val)) |> 
+  # get data before 2019
+  filter(year <= 2019)
 
 df_aapc <- data.frame(measure = unique(df_all_trend$measure)) |> 
   rowwise() |> 
@@ -140,10 +142,10 @@ df_dalys_aapc <- df_aapc |>
 df_names <- c('df_incidence_2021', 'df_dalys_2021', 'df_incidence_aapc', 'df_dalys_aapc')
 legend_names <- c('Incidence rate\n(per 100,000), 2021',
                   'DALYs rate\n(per 100,000), 2021',
-                  'AAPC of incidence,\n1990-2021',
-                  'AAPC of DALYs,\n1990-2021')
+                  'AAPC of incidence,\n1990-2019',
+                  'AAPC of DALYs,\n1990-2019')
 
-i <- 3
+i <- 1
 
 ## plot
 plot_map <- function(i) {
@@ -196,7 +198,7 @@ plot_map <- function(i) {
           legend.justification = c(0, 0),
           plot.title = element_text(size = 30),
           plot.title.position = 'plot')+
-    labs(title = LETTERS[i],
+    labs(title = LETTERS[floor(i/2)+2],
          fill = legend_names[i],
          x = NULL,
          y = NULL)+
@@ -236,21 +238,24 @@ fig_D <- plot_map(4)
 
 # save plot -----------------------------------------------------------
 
-fig <- plot_grid(fig_A, fig_B, fig_C, fig_D,
-                 nrow = 2,
-                 ncol = 2,
-                 rel_heights = c(1, 1),
-                 rel_widths = c(1, 1))
-
 ggsave('../outcome/fig_2_national_trend.pdf',
-       plot = fig,
-       width = 22,
+       plot = fig_A / fig_B,
+       width = 11,
+       height = 15.5,
+       device = cairo_pdf,
+       family = 'Helvetica')
+
+ggsave('../outcome/fig_3_national_trend.pdf',
+       plot = fig_C / fig_D,
+       width = 11,
        height = 15.5,
        device = cairo_pdf,
        family = 'Helvetica')
 
 write.xlsx(list('Incidence rate' = df_incidence_2021,
-                'DALYs rate' = df_dalys_2021,
-                'AAPC of incidence rate' = df_incidence_aapc,
-                'AAPC of DALYs rate' = df_dalys_aapc),
+                'DALYs rate' = df_dalys_2021),
            '../outcome/fig_2_national_trend.xlsx')
+
+write.xlsx(list('AAPC of incidence' = df_incidence_aapc,
+                'AAPC of DALYs' = df_dalys_aapc),
+           '../outcome/fig_3_national_trend.xlsx')

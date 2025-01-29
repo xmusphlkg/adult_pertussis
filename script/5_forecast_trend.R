@@ -26,6 +26,25 @@ df_raw_dalys_male <- read.csv('../data/database/dalys_number_male.csv')
 
 df_raw_dalys_female <- read.csv('../data/database/dalys_number_female.csv')
 
+df_global <- read.csv('../data/database/global_regional_number.csv') |> 
+  filter(location_name == 'Global',
+         measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence'),
+         year > 2019,
+         age_name %in% c('20+ years',
+                         '20-24 years', '25-29 years', '30-34 years', '35-39 years',
+                         '40-44 years', '45-49 years', '50-54 years', '55+ years'),
+         sex_name == 'Both') |> 
+  select(year, measure_name, age_name, val) |> 
+  arrange(year, measure_name, age_name) |> 
+  group_by(measure_name, age_name) |>
+  summarise(val = sum(val),
+            .groups = 'drop') |> 
+  mutate(measure_name = recode(measure_name,
+                               'DALYs (Disability-Adjusted Life Years)' = 'DALYs',
+                               'Incidence' = 'Incidence'),
+         age_name = recode(age_name,
+                           '20+ years' = 'Total'))
+
 df_map_iso <- read.csv('../data/iso_code.csv')
 
 df_map <- st_read("../data/world.zh.json") |> 
@@ -185,7 +204,7 @@ df_dalys_forecast_location <- df_dalys_forecast_ols |>
   filter(location_name != '<aggregated>' & age_name == '<aggregated>') |> 
   select(location_name, year, val = '.mean')
   
-# visualization ------------------------------------------------------------
+# save map ------------------------------------------------------------
 
 df_list <- c('incidence', 'dalys')
 
@@ -268,6 +287,59 @@ plot_map <- function(data, i) {
   
   plot_grid(fig_main, fig_region, nrow = 2, ncol = 1, rel_heights = c(3, 1.2))
 }
+
+
+# visual by location
+data_total_location_incidence <- df_incidence |> 
+  filter(year > 2019) |> 
+  group_by(location_name, year) |>
+  summarise(val = sum(val),
+            .groups = 'drop') |>
+  left_join(get(paste0('df_', df_list[i], '_forecast_location')),
+            by = c('location_name', 'year')) |> 
+  rename(Forecasted = val.y, Observed = val.x) |> 
+  group_by(location_name) |>
+  summarise(Observed = sum(Observed),
+            Forecasted = sum(Forecasted),
+            .groups = 'drop') |>
+  mutate(val = (Forecasted - Observed)/Forecasted,
+         color = if_else(val > 0, "Decrease", "Increase"))
+
+fig2 <- plot_map(data_total_location, 1)
+
+ggsave(paste0('../outcome/fig_4_forecast_trend_B.pdf'),
+       plot = fig2,
+       width = 11,
+       height = 8,
+       device = cairo_pdf,
+       family = 'Helvetica')
+
+# visual by location
+data_total_location_dalys <- df_dalys |> 
+  filter(year > 2019) |> 
+  group_by(location_name, year) |>
+  summarise(val = sum(val),
+            .groups = 'drop') |>
+  left_join(get(paste0('df_', df_list[i], '_forecast_location')),
+            by = c('location_name', 'year')) |> 
+  rename(Forecasted = val.y, Observed = val.x) |> 
+  group_by(location_name) |>
+  summarise(Observed = sum(Observed),
+            Forecasted = sum(Forecasted),
+            .groups = 'drop') |>
+  mutate(val = (Forecasted - Observed)/Forecasted,
+         color = if_else(val > 0, "Decrease", "Increase"))
+
+fig3 <- plot_map(data_total_location, 2)
+
+ggsave(paste0('../outcome/fig_4_forecast_trend_C.pdf'),
+       plot = fig3,
+       width = 11,
+       height = 8,
+       device = cairo_pdf,
+       family = 'Helvetica')
+
+# save line ----------------------------------------------------------------
 
 plot_fun <- function(i){
   ## real data
@@ -362,32 +434,7 @@ plot_fun <- function(i){
     labs(title = LETTERS[i*3-1],
          x = NULL,
          y = NULL)
-  
-  # visual by location
-  data_total_location <- get(paste0('df_', df_list[i])) |> 
-    filter(year > 2019) |> 
-    group_by(location_name, year) |>
-    summarise(val = sum(val),
-              .groups = 'drop') |>
-    left_join(get(paste0('df_', df_list[i], '_forecast_location')),
-              by = c('location_name', 'year')) |> 
-    rename(Forecasted = val.y, Observed = val.x) |> 
-    group_by(location_name) |>
-    summarise(Observed = sum(Observed),
-              Forecasted = sum(Forecasted),
-              .groups = 'drop') |>
-    mutate(val = (Forecasted - Observed)/Forecasted,
-           color = if_else(val > 0, "Decrease", "Increase"))
-  
-  fig3 <- plot_map(data_total_location, i)
-  
-  ggsave(paste0('../outcome/fig_3_forecast_trend', LETTERS[i*3-2], '.pdf'),
-         plot = fig3,
-         width = 11,
-         height = 8,
-         device = cairo_pdf,
-         family = 'Helvetica')
-  
+
   plot_grid(fig_1, fig_2, nrow = 1, rel_widths = c(1, 3.5))
 }
 
@@ -395,11 +442,29 @@ fig_1 <- plot_fun(1)
 
 fig_2 <- plot_fun(2)
 
-# save plot ----------------------------------------------------------------
-
-ggsave('../outcome/fig_3_forecast_trend.pdf',
-       plot = plot_grid(fig_1, fig_2, nrow = 1),
-       width = 22,
-       height = 3,
+ggsave('../outcome/fig_4_forecast_trend.pdf',
+       plot = plot_grid(fig_1, fig_2, ncol = 1),
+       width = 11,
+       height = 6,
        device = cairo_pdf,
        family = 'Helvetica')
+
+df_global_compare <- rbind(df_dalys_forecast_total |>
+                             mutate(measure_name = 'DALYs'),
+                           df_incidence_forecast_total |>
+                             mutate(measure_name = 'Incidence')) |> 
+  group_by(measure_name, age_name) |>
+  summarise(val = sum(val),
+            .groups = 'drop') |>
+  left_join(df_global, by = c('measure_name', 'age_name')) |> 
+  rename(observed = val.y, forecasted = val.x) |>
+  mutate(val = (forecasted - observed)/forecasted,
+         val = round(val, 4),
+         color = if_else(val > 0, "Decrease", "Increase"))
+
+
+write.xlsx(list('Total' = df_global_compare,
+                'Incidence' = data_total_location_incidence,
+                'DALYs' = data_total_location_dalys),
+           '../outcome/fig_4_forecast_trend.xlsx',
+           asTable = T)
