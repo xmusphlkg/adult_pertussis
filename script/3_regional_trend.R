@@ -140,7 +140,7 @@ df_age_rate <- df_global |>
 df_age_rate_label <- df_age_rate |>
   filter(year %in% c(1990, 2019, 2021)) |> 
   # format number: romove decimals and add comma
-  mutate(across(c(val, lower, upper), ~round(., 2)),
+  mutate(across(c(val, lower, upper), ~formatC(., format = 'f', big.mark = ',', digits = 2)),
          across(c(val, lower, upper), ~format(., big.mark = ',', trim = TRUE)),
          label = paste0(val, '<br>(', lower, '~', upper, ')')) |>
   select(-val, -lower, -upper) |>
@@ -169,7 +169,8 @@ df_label <- bind_rows(df_region_number_label, df_region_rate_label,
 calculate_aapc <- function(data, measure_set) {
   data_filtered <- data |> 
     filter(measure == measure_set) |>
-    arrange(year)
+    arrange(year) |> 
+    mutate(val = round(val))
   
   # get log value
   # data_filtered$log_val <- log(data_filtered$val)
@@ -198,30 +199,38 @@ calculate_aapc <- function(data, measure_set) {
   return(result)
 }
 
-
-df_global_trend <- rbind(df_region_rate, df_sex_rate, df_age_rate) |>
+df_global_trend <- rbind(df_region_number, df_sex_number, df_age_number) |>
   # combined Index, metric_name, measure_name
   mutate(measure = paste(Index, metric_name, measure_name, sep = '--'))
 
-df_aapc <- data.frame(measure = unique(df_global_trend$measure)) |> 
+df_aapc_1 <- data.frame(measure = unique(df_global_trend$measure)) |> 
   rowwise() |> 
-  mutate(aapc_results = map(measure, ~calculate_aapc(df_global_trend, .x))) |> 
+  mutate(aapc_results = map(measure, ~calculate_aapc(filter(df_global_trend, year <= 2019), .x))) |> 
   unnest_wider(col = aapc_results) |> 
-  # round result
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2)),
-         P_value = case_when(P_value < 0.001 ~ '<0.001',
+  mutate(across(c(AAPC, CI_lower, CI_upper), ~formatC(., format = 'f', digits = 2)),
+         P_value = case_when(P_value < 0.001 ~ '***',
+                             P_value < 0.01 ~ '**',
+                             P_value < 0.05 ~ '*',
                              TRUE ~ as.character(round(P_value, 3))),
-         `AAPC (95%CI)` = paste0(AAPC, '<br>(', CI_lower, '~', CI_upper, ')'),
-         `p value` = P_value) |> 
-  select(measure, `AAPC (95%CI)`, `p value`) |> 
+         `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |> 
+  select(measure, `AAPC (95%CI)\n1990-2019` = `AAPC (95%CI)`)
+  
+df_aapc_2 <- data.frame(measure = unique(df_global_trend$measure)) |>
+  rowwise() |>
+  mutate(aapc_results = map(measure, ~calculate_aapc(filter(df_global_trend, year >= 2019), .x))) |>
+  unnest_wider(col = aapc_results) |> 
+  mutate(across(c(AAPC, CI_lower, CI_upper), ~formatC(., format = 'f', digits = 2)),
+         P_value = case_when(P_value < 0.001 ~ '***',
+                             P_value < 0.01 ~ '**',
+                             P_value < 0.05 ~ '*',
+                             TRUE ~ as.character(round(P_value, 3))),
+         `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |>
+  select(measure, `AAPC (95%CI)\n2019-2021` = `AAPC (95%CI)`)
+  
+df_aapc <- left_join(df_aapc_1, df_aapc_2, by = 'measure') |>
   # split measure
   separate(measure, c('Index', 'metric_name', 'measure_name'), sep = '--') |>
-  pivot_longer(cols = c(`AAPC (95%CI)`, `p value`), names_to = 'variable', values_to = 'value') |>
-  # combined measure_name and metric_name
-  mutate(title = paste(metric_name, measure_name, variable, sep = '-')) |>
-  select(title, Index, value) |>
-  pivot_wider(names_from = title,
-              values_from = value) |> 
+  select(Index, measure_name, `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`) |>
   mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
                                           'High', "High-middle", "Middle", "Low-middle", "Low",
                                           '20-24 years', '25-29 years', '30-34 years', '35-39 years',
@@ -232,28 +241,50 @@ df_aapc <- data.frame(measure = unique(df_global_trend$measure)) |>
 
 # save --------------------------------------------------------------------
 
-df_output <- df_label |> 
-  left_join(df_aapc, by = 'Index') |> 
+df_output_inci <- df_label |> 
+  select(Index, contains('Incidence')) |> 
+  left_join(filter(df_aapc, measure_name == 'Incidence'), by = 'Index') |> 
   select(Index,
          `Number Incidence 1990`, `Rate Incidence 1990`,
          `Number Incidence 2019`, `Rate Incidence 2019`,
          `Number Incidence 2021`, `Rate Incidence 2021`,
-         `Rate-Incidence-AAPC (95%CI)`, `Rate-Incidence-p value`,
+         `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`)
+
+# save to md file
+markdown_table <- knitr::kable(df_output_inci,
+                               format = "markdown",
+                               col.names = c('Group',
+                                             '1990<br>Incidence',
+                                             '1990<br>Incidence rate (per 100,000)',
+                                             '2019<br>Incidence',
+                                             '2019<br>Incidence rate (per 100,000)',
+                                             '2021<br>Incidence',
+                                             '2021<br>Incidence rate (per 100,000)',
+                                             'AAPC (95%CI)<br>1990-2019',
+                                             'AAPC (95%CI)<br>2019-2021'),
+                               escape = FALSE)
+write(markdown_table, '../outcome/table_2_incidence_trend.md')
+
+df_output_daly <- df_label |> 
+  select(Index, contains('DALYs')) |> 
+  left_join(filter(df_aapc, measure_name == 'DALYs'), by = 'Index') |> 
+  select(Index,
          `Number DALYs 1990`, `Rate DALYs 1990`,
          `Number DALYs 2019`, `Rate DALYs 2019`,
          `Number DALYs 2021`, `Rate DALYs 2021`,
-         `Rate-DALYs-AAPC (95%CI)`, `Rate-DALYs-p value`)
+         `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`)
 
 # save to md file
-markdown_table <- knitr::kable(df_output,
+markdown_table <- knitr::kable(df_output_daly,
                                format = "markdown",
                                col.names = c('Group',
-                                             'Incidence, 1990', 'Incidence rate (per 100,000), 1990',
-                                             'Incidence, 2019', 'Incidence rate (per 100,000), 2019',
-                                             'Incidence, 2021', 'Incidence rate (per 100,000), 2021',
-                                             'AAPC (95%CI), 1990-2021', 'p value',
-                                             'DALYs, 1990', 'DALYs rate (per 100,000), 1990',
-                                             'DALYs, 2019', 'DALYs rate (per 100,000), 2019',
-                                             'DALYs, 2021', 'DALYs rate (per 100,000), 2021',
-                                             'AAPC (95%CI), 1990-2021', 'p value'))
-write(markdown_table, '../outcome/table_2_regional_trend.md')
+                                             '1990<br>DALYs',
+                                             '1990<br>DALYs rate (per 100,000)',
+                                             '2019<br>DALYs',
+                                             '2019<br>DALYs rate (per 100,000)',
+                                             '2021<br>DALYs',
+                                             '2021<br>DALYs rate (per 100,000)',
+                                             'AAPC (95%CI)<br>1990-2019',
+                                             'AAPC (95%CI)<br>2019-2021'),
+                               escape = FALSE)
+write(markdown_table, '../outcome/table_3_dalys_trend.md')
