@@ -256,7 +256,7 @@ plot_map <- function(data, i) {
           legend.position.inside = c(0.01, 0.01),
           legend.justification = c(0, 0),
           plot.title.position = 'plot')+
-    labs(title = LETTERS[i*3],
+    labs(title = LETTERS[i],
          fill = legend_names[i],
          x = NULL,
          y = NULL)
@@ -303,16 +303,12 @@ data_total_location_incidence <- df_incidence |>
             Forecasted = sum(Forecasted),
             .groups = 'drop') |>
   mutate(val = (Forecasted - Observed)/Forecasted,
-         color = if_else(val > 0, "Decrease", "Increase"))
+         color = if_else(val > 0, "Decrease", "Increase")) |> 
+  # add location id
+  left_join(select(df_map_iso, location_name, location_name_1, SDI.Quintile),
+            by = c('location_name' = 'location_name_1'))
 
-fig2 <- plot_map(data_total_location, 1)
-
-ggsave(paste0('../outcome/fig_4_forecast_trend_B.pdf'),
-       plot = fig2,
-       width = 11,
-       height = 8,
-       device = cairo_pdf,
-       family = 'Helvetica')
+fig2 <- plot_map(data_total_location_incidence, 1)
 
 # visual by location
 data_total_location_dalys <- df_dalys |> 
@@ -328,18 +324,28 @@ data_total_location_dalys <- df_dalys |>
             Forecasted = sum(Forecasted),
             .groups = 'drop') |>
   mutate(val = (Forecasted - Observed)/Forecasted,
-         color = if_else(val > 0, "Decrease", "Increase"))
+         color = if_else(val > 0, "Decrease", "Increase")) |> 
+  # add location id
+  left_join(select(df_map_iso, location_name, location_name_1, SDI.Quintile),
+            by = c('location_name' = 'location_name_1'))
 
-fig3 <- plot_map(data_total_location, 2)
+fig3 <- plot_map(data_total_location_dalys, 2)
 
-ggsave(paste0('../outcome/fig_4_forecast_trend_C.pdf'),
-       plot = fig3,
+ggsave('../outcome/fig_5_forecast_trend.pdf',
+       plot = fig2 / fig3,
        width = 11,
-       height = 8,
+       height = 15.5,
        device = cairo_pdf,
        family = 'Helvetica')
 
+write.xlsx(list('Incidence' = data_total_location_incidence,
+                'DALYs' = data_total_location_dalys),
+           '../outcome/fig_5_forecast_trend.xlsx',
+           asTable = T)
+
 # save line ----------------------------------------------------------------
+
+legend_names <- c('Incidence', 'DALYs')
 
 plot_fun <- function(i){
   ## real data
@@ -402,10 +408,10 @@ plot_fun <- function(i){
           legend.position.inside = c(0.01, 0.4),
           legend.justification = c(0, 1),
           plot.title.position = 'plot')+
-    labs(title = LETTERS[i*3-2],
+    labs(title = LETTERS[i*2-1],
          color = NULL,
          x = NULL,
-         y = 'Incidence')+
+         y = legend_names[i])+
     guides(fill = "none", color = guide_legend(title = NULL))
   
   ## visual by age
@@ -431,7 +437,7 @@ plot_fun <- function(i){
     theme_bw()+
     theme(panel.grid = element_blank(),
           plot.title.position = 'plot')+
-    labs(title = LETTERS[i*3-1],
+    labs(title = LETTERS[i*2],
          x = NULL,
          y = NULL)
 
