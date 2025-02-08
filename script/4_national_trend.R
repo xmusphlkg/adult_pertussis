@@ -148,7 +148,7 @@ legend_names <- c('Incidence rate\n(per 100,000), 2021',
 i <- 1
 
 ## plot
-plot_map <- function(i) {
+plot_map <- function(i, title) {
   # get data
   data <- get(df_names[i]) |> 
     left_join(df_map_iso, by = c("location_name" = "location_name_1"))
@@ -198,7 +198,7 @@ plot_map <- function(i) {
           legend.justification = c(0, 0),
           plot.title = element_text(size = 30),
           plot.title.position = 'plot')+
-    labs(title = LETTERS[floor(i/2)+2],
+    labs(title = title,
          fill = legend_names[i],
          x = NULL,
          y = NULL)+
@@ -231,10 +231,10 @@ plot_map <- function(i) {
   plot_grid(fig_main, fig_region, nrow = 2, ncol = 1, rel_heights = c(3, 1.2))
 }
 
-fig_A <- plot_map(1)
-fig_B <- plot_map(2)
-fig_C <- plot_map(3)
-fig_D <- plot_map(4)
+fig_A <- plot_map(1, LETTERS[1])
+fig_B <- plot_map(2, LETTERS[2])
+fig_C <- plot_map(3, LETTERS[1])
+fig_D <- plot_map(4, LETTERS[2])
 
 # save plot -----------------------------------------------------------
 
