@@ -22,9 +22,9 @@ export_opt = export_options()
 
 # data --------------------------------------------------------------------
 
-df_number <- read.csv('../data/database/global_regional_number.csv')
+df_number <- read.csv('./data/database/global_regional_number.csv')
 
-df_rate <- read.csv('../data/database/global_regional_rate.csv')
+df_rate <- read.csv('./data/database/global_regional_rate.csv')
 
 ## get global data
 df_global_number <- df_number |> 
@@ -124,7 +124,7 @@ df_aapc <- bind_rows(df_aapc_incidence, df_aapc_dalys) |>
 markdown_table <- knitr::kable(df_aapc,
                                format = "markdown",
                                col.names = c('Year', 'Incidence, AAPC (95%CI)', 'p value', 'DALYs, AAPC (95%CI)', 'p value'))
-write(markdown_table, '../outcome/table_1_global_trend.md')
+write(markdown_table, './outcome/table_1_global_trend.md')
 
 ## incidence visualization ------------------------------------------------
 
@@ -184,7 +184,7 @@ fig_1 <- ggplot(data)+
         legend.justification.bottom = 'right',
         legend.title.position = 'top',
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(ncol = 3, byrow = TRUE))+
+  guides(fill = guide_legend(ncol = 4, byrow = TRUE))+
   labs(x = NULL,
        y = 'Incidence rate',
        fill = "APC (95% CI)",
@@ -249,7 +249,7 @@ fig_2 <- ggplot(data)+
         legend.justification.bottom = 'right',
         legend.title.position = 'top',
         legend.key.spacing.y = unit(0.35, 'cm'))+
-  guides(fill = guide_legend(ncol = 3, byrow = T))+
+  guides(fill = guide_legend(ncol = 4, byrow = T))+
   labs(x = NULL,
        y = 'DALYs rate',
        fill = "APC (95% CI)",
@@ -257,17 +257,17 @@ fig_2 <- ggplot(data)+
 
 # save trends ------------------------------------------------------------------
 
-fig <- fig_1 / fig_2
+fig <- fig_1 + fig_2
 
-ggsave('../outcome/fig_1_global_trend.pdf',
+ggsave('./outcome/fig_1_global_trend.pdf',
        plot = fig,
-       width = 5,
-       height = 8.5,
+       width = 14,
+       height = 5,
        device = cairo_pdf,
        family = 'Helvetica')
 
 # Appendix -------------------------------------------------------------------
 
-source('../script/2_over_20_percent.R')
+source('./script/2_over_20_percent.R')
 
-source('../script/2_age_trend.R')
+source('./script/2_age_trend.R')

@@ -7,11 +7,11 @@ library(openxlsx)
 
 # data --------------------------------------------------------------------
 
-df_raw_number <- read.csv('../data/database/global_regional_number.csv')
+df_raw_number <- read.csv('./data/database/global_regional_number.csv')
 
-df_raw_rate <- read.csv('../data/database/global_regional_rate.csv')
+df_raw_rate <- read.csv('./data/database/global_regional_rate.csv')
 
-df_region_list <- read.csv('../data/region.csv')
+df_region_list <- read.csv('./data/region.csv')
 
 ## get incidence, incidence rate, DALYs, DALYs rate
 df_global_number <- df_raw_number |> 
@@ -263,7 +263,7 @@ markdown_table <- knitr::kable(df_output_inci,
                                              'AAPC (95%CI)<br>1990-2019',
                                              'AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
-write(markdown_table, '../outcome/table_2_incidence_trend.md')
+write(markdown_table, './outcome/table_2_incidence_trend.md')
 
 df_output_daly <- df_label |> 
   select(Index, contains('DALYs')) |> 
@@ -287,4 +287,4 @@ markdown_table <- knitr::kable(df_output_daly,
                                              'AAPC (95%CI)<br>1990-2019',
                                              'AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
-write(markdown_table, '../outcome/table_3_dalys_trend.md')
+write(markdown_table, './outcome/table_3_dalys_trend.md')

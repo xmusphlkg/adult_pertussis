@@ -4,11 +4,11 @@
 rm(list = ls())
 
 ## loading map data
-df_map_iso <- read.csv('../data/iso_code.csv')
+df_map_iso <- read.csv('./data/iso_code.csv')
 
-df_region <- read.csv('../data/geographical.csv')
+df_region <- read.csv('./data/geographical.csv')
 
-df_map <- st_read("../data/world.zh.json") |> 
+df_map <- st_read("./data/world.zh.json") |> 
   filter(iso_a3  != "ATA")
 
 ## modify map data
@@ -27,7 +27,7 @@ df_map <- df_map |>
 
 remove(somalia_combined)
 
-df_age <- read.csv('../data/allage/IHME-GBD_2021_DATA-79cf5de6-1/IHME-GBD_2021_DATA-79cf5de6-1.csv')
+df_age <- read.csv('./data/allage/IHME-GBD_2021_DATA-79cf5de6-1/IHME-GBD_2021_DATA-79cf5de6-1.csv')
 
 # clean data
 df_age <- df_age |>
@@ -145,7 +145,7 @@ plot_map <- function(i) {
   
   fig <- plot_grid(fig_main, fig_region, nrow = 2, ncol = 1, rel_heights = c(3, 1.2))
   
-  ggsave(paste0('../outcome/appendix/', i, '.png'),
+  ggsave(paste0('./outcome/appendix/', i, '.png'),
          plot = fig,
          width = 11,
          height = 7.5)

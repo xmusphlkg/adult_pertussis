@@ -3,15 +3,15 @@
 
 rm(list = ls())
 
-df_number <- read.csv('../data/database/incidence_number_both.csv')
-df_number <- read.csv('../data/database/dalys_number_both.csv') |> 
+df_number <- read.csv('./data/database/incidence_number_both.csv')
+df_number <- read.csv('./data/database/dalys_number_both.csv') |> 
   rbind(df_number)
 
-df_rate <- read.csv('../data/database/incidence_rate_both.csv')
-df_rate <- read.csv('../data/database/dalys_rate_both.csv') |> 
+df_rate <- read.csv('./data/database/incidence_rate_both.csv')
+df_rate <- read.csv('./data/database/dalys_rate_both.csv') |> 
   rbind(df_rate)
 
-region_name <- read.csv('../data/region.csv') |> 
+region_name <- read.csv('./data/region.csv') |> 
   filter(Region != 'Global') |>
   mutate(
     Is_SDI = Group == "Sociodemographic index",
@@ -124,7 +124,7 @@ df_aapc <- bind_rows(df_aapc_incidence, df_aapc_dalys) |>
 
 # visualization -----------------------------------------------------------
 
-plot_val <- function(data, measure, locat) {
+plot_val <- function(data, measure, locat, ylab) {
   data_filtered <- data |> 
     filter(measure_name == measure)
   
@@ -143,7 +143,7 @@ plot_val <- function(data, measure, locat) {
                        expand = c(0, 0)) +
     labs(title = str_remove(locat, ' - WB'),
          x = NULL,
-         y = paste0(measure, ' rate')) +
+         y = ylab) +
     theme_bw()+
     theme(plot.title.position = 'plot')
   
@@ -158,30 +158,34 @@ reg_name <- region_name |>
 
 fig_incidence <- lapply(sdi_name, plot_val,
                         data = df_global_rate,
-                        measure = 'Incidence')
+                        measure = 'Incidence',
+                        ylab = 'Incidence rate')
 fig_incidence <- patchwork::wrap_plots(fig_incidence, ncol = 3)
 
 fig_dalys <- lapply(sdi_name, plot_val,
                     data = df_global_rate,
-                    measure = 'DALYs (Disability-Adjusted Life Years)')
+                    measure = 'DALYs (Disability-Adjusted Life Years)',
+                    ylab = 'DALYs rate')
 fig_dalys <- patchwork::wrap_plots(fig_dalys, ncol = 3)
 
-ggsave(paste0('../outcome/appendix/9.png'),
+ggsave(paste0('./outcome/appendix/9.png'),
        plot = fig_incidence / fig_dalys,
        width = 11,
        height = 11)
 
 fig_incidence <- lapply(reg_name, plot_val,
                         data = df_global_rate,
-                        measure = 'Incidence')
+                        measure = 'Incidence',
+                        ylab = 'Incidence rate')
 fig_incidence <- patchwork::wrap_plots(fig_incidence, ncol = 3)
 
 fig_dalys <- lapply(reg_name, plot_val,
                     data = df_global_rate,
-                    measure = 'DALYs (Disability-Adjusted Life Years)')
+                    measure = 'DALYs (Disability-Adjusted Life Years)',
+                    ylab = 'DALYs rate')
 fig_dalys <- patchwork::wrap_plots(fig_dalys, ncol = 3)
 
-ggsave(paste0('../outcome/appendix/10.png'),
+ggsave(paste0('./outcome/appendix/10.png'),
        plot = fig_incidence / fig_dalys,
        width = 11,
        height = 14)
@@ -206,7 +210,7 @@ markdown_table <- knitr::kable(df_aapc_incidence_table,
 
 
 write(markdown_table,
-      '../outcome/appendix/table 3.md')
+      './outcome/appendix/table 3.md')
 
 df_aapc_dalys_table <- df_aapc |>
   filter(Measure == 'DALYs') |>
@@ -224,4 +228,4 @@ markdown_table <- knitr::kable(df_aapc_dalys_table,
                                align = 'lcccc')
 
 write(markdown_table,
-      '../outcome/appendix/table 4.md')
+      './outcome/appendix/table 4.md')

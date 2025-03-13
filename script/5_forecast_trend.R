@@ -18,15 +18,15 @@ library(cowplot)
 
 # data --------------------------------------------------------------------
 
-df_raw_incidence_male <- read.csv('../data/database/incidence_number_male.csv')
+df_raw_incidence_male <- read.csv('./data/database/incidence_number_male.csv')
 
-df_raw_incidence_female <- read.csv('../data/database/incidence_number_female.csv')
+df_raw_incidence_female <- read.csv('./data/database/incidence_number_female.csv')
 
-df_raw_dalys_male <- read.csv('../data/database/dalys_number_male.csv')
+df_raw_dalys_male <- read.csv('./data/database/dalys_number_male.csv')
 
-df_raw_dalys_female <- read.csv('../data/database/dalys_number_female.csv')
+df_raw_dalys_female <- read.csv('./data/database/dalys_number_female.csv')
 
-df_global <- read.csv('../data/database/global_regional_number.csv') |> 
+df_global <- read.csv('./data/database/global_regional_number.csv') |> 
   filter(location_name == 'Global',
          measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence'),
          year > 2019,
@@ -45,12 +45,12 @@ df_global <- read.csv('../data/database/global_regional_number.csv') |>
          age_name = recode(age_name,
                            '20+ years' = 'Total'))
 
-df_map_iso <- read.csv('../data/iso_code.csv')
+df_map_iso <- read.csv('./data/iso_code.csv')
 
-df_map <- st_read("../data/world.zh.json") |> 
+df_map <- st_read("./data/world.zh.json") |> 
   filter(iso_a3  != "ATA")
 
-df_region <- read.csv('../data/geographical.csv')
+df_region <- read.csv('./data/geographical.csv')
 
 ## modify map data
 ### combine 索马里兰 and 索马里
@@ -68,7 +68,7 @@ df_map <- df_map |>
 
 remove(somalia_combined)
 
-df_region_sdi <- read.xlsx('../data/IHME_GBD_SDI_2021_SDI_QUINTILES_Y2024M05D16.xlsx')
+df_region_sdi <- read.xlsx('./data/IHME_GBD_SDI_2021_SDI_QUINTILES_Y2024M05D16.xlsx')
 
 ## clean SDI data
 df_map_iso <- df_map_iso |>
@@ -255,6 +255,7 @@ plot_map <- function(data, i) {
           legend.position = 'inside',
           legend.position.inside = c(0.01, 0.01),
           legend.justification = c(0, 0),
+          plot.title = element_text(size = 30),
           plot.title.position = 'plot')+
     labs(title = LETTERS[i],
          fill = legend_names[i],
@@ -331,16 +332,16 @@ data_total_location_dalys <- df_dalys |>
 
 fig3 <- plot_map(data_total_location_dalys, 2)
 
-ggsave('../outcome/fig_5_forecast_trend.pdf',
-       plot = fig2 / fig3,
-       width = 11,
-       height = 15.5,
+ggsave('./outcome/fig_5_forecast_trend.pdf',
+       plot = fig2 + fig3,
+       width = 22,
+       height = 8,
        device = cairo_pdf,
        family = 'Helvetica')
 
 write.xlsx(list('Incidence' = data_total_location_incidence,
                 'DALYs' = data_total_location_dalys),
-           '../outcome/fig_5_forecast_trend.xlsx',
+           './outcome/fig_5_forecast_trend.xlsx',
            asTable = T)
 
 # save line ----------------------------------------------------------------
@@ -448,7 +449,7 @@ fig_1 <- plot_fun(1)
 
 fig_2 <- plot_fun(2)
 
-ggsave('../outcome/fig_4_forecast_trend.pdf',
+ggsave('./outcome/fig_4_forecast_trend.pdf',
        plot = plot_grid(fig_1, fig_2, ncol = 1),
        width = 11,
        height = 6,
@@ -472,5 +473,5 @@ df_global_compare <- rbind(df_dalys_forecast_total |>
 write.xlsx(list('Total' = df_global_compare,
                 'Incidence' = data_total_location_incidence,
                 'DALYs' = data_total_location_dalys),
-           '../outcome/fig_4_forecast_trend.xlsx',
+           './outcome/fig_4_forecast_trend.xlsx',
            asTable = T)

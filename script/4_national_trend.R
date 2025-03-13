@@ -11,17 +11,17 @@ library(sf)
 
 # data --------------------------------------------------------------------
 
-df_raw_incidence <- read.csv('../data/database/incidence_rate_both.csv')
+df_raw_incidence <- read.csv('./data/database/incidence_rate_both.csv')
 
-df_raw_dalys <- read.csv('../data/database/dalys_rate_both.csv')
+df_raw_dalys <- read.csv('./data/database/dalys_rate_both.csv')
 
 ## loading map data
-df_map_iso <- read.csv('../data/iso_code.csv')
+df_map_iso <- read.csv('./data/iso_code.csv')
 
-df_map <- st_read("../data/world.zh.json") |> 
+df_map <- st_read("./data/world.zh.json") |> 
   filter(iso_a3  != "ATA")
 
-df_region <- read.csv('../data/geographical.csv')
+df_region <- read.csv('./data/geographical.csv')
 
 ## modify map data
 ### combine 索马里兰 and 索马里
@@ -55,9 +55,9 @@ df_incidence_2021 <- df_all |>
 df_dalys_2021 <- df_all |>
   filter(year == 2021 & measure_name == 'DALYs')
 
-df_raw_incidence <- read.csv('../data/database/incidence_number_both.csv')
+df_raw_incidence <- read.csv('./data/database/incidence_number_both.csv')
 
-df_raw_dalys <- read.csv('../data/database/dalys_number_both.csv')
+df_raw_dalys <- read.csv('./data/database/dalys_number_both.csv')
 
 ## get incidence number, DALYs number
 df_all_number <- df_raw_incidence |>
@@ -238,24 +238,24 @@ fig_D <- plot_map(4, LETTERS[2])
 
 # save plot -----------------------------------------------------------
 
-ggsave('../outcome/fig_2_national_trend.pdf',
-       plot = fig_A / fig_B,
-       width = 11,
-       height = 15.5,
+ggsave('./outcome/fig_2_national_trend.pdf',
+       plot = fig_A + fig_B,
+       width = 22,
+       height = 8,
        device = cairo_pdf,
        family = 'Helvetica')
 
-ggsave('../outcome/fig_3_national_trend.pdf',
-       plot = fig_C / fig_D,
-       width = 11,
-       height = 15.5,
+ggsave('./outcome/fig_3_national_trend.pdf',
+       plot = fig_C + fig_D,
+       width = 22,
+       height = 8,
        device = cairo_pdf,
        family = 'Helvetica')
 
 write.xlsx(list('Incidence rate' = df_incidence_2021,
                 'DALYs rate' = df_dalys_2021),
-           '../outcome/fig_2_national_trend.xlsx')
+           './outcome/fig_2_national_trend.xlsx')
 
 write.xlsx(list('AAPC of incidence' = df_incidence_aapc,
                 'AAPC of DALYs' = df_dalys_aapc),
-           '../outcome/fig_3_national_trend.xlsx')
+           './outcome/fig_3_national_trend.xlsx')

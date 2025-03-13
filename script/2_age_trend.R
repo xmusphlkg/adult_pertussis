@@ -1,11 +1,14 @@
 
+library(MASS)
+library(tidyverse)
+
 # data --------------------------------------------------------------------
 
 rm(list = ls())
 
-df_number <- read.csv('../data/database/global_regional_number.csv')
+df_number <- read.csv('./data/database/global_regional_number.csv')
 
-df_rate <- read.csv('../data/database/global_regional_rate.csv')
+df_rate <- read.csv('./data/database/global_regional_rate.csv')
 
 age_groups <- c('20-24 years', '25-29 years', '30-34 years',
                 '35-39 years', '40-44 years', '45-49 years', '50-54 years',
@@ -106,7 +109,7 @@ df_aapc <- bind_rows(df_aapc_incidence, df_aapc_dalys) |>
 
 # visualization -----------------------------------------------------------
 
-plot_val <- function(data, measure, age) {
+plot_val <- function(data, measure, age, ylab) {
   data_filtered <- data |> 
     filter(measure_name == measure)
   
@@ -125,7 +128,7 @@ plot_val <- function(data, measure, age) {
                        expand = c(0, 0)) +
     labs(title = age,
          x = NULL,
-         y = paste0(measure, ' rate')) +
+         y = ylab) +
     theme_bw()+
     theme(plot.title.position = 'plot')
   
@@ -134,40 +137,44 @@ plot_val <- function(data, measure, age) {
 
 fig_incidence <- lapply(age_groups, plot_val,
                         data = df_global_rate,
-                        measure = 'Incidence')
+                        measure = 'Incidence',
+                        ylab = 'Incidence rate')
 fig_incidence <- patchwork::wrap_plots(fig_incidence, ncol = 4)
 
 fig_dalys <- lapply(age_groups, plot_val,
                     data = df_global_rate,
-                    measure = 'DALYs (Disability-Adjusted Life Years)')
+                    measure = 'DALYs (Disability-Adjusted Life Years)',
+                    ylab = 'DALYs rate')
 fig_dalys <- patchwork::wrap_plots(fig_dalys, ncol = 4)
 
-ggsave(paste0('../outcome/appendix/5.png'),
+ggsave(paste0('./outcome/appendix/5.png'),
        plot = fig_incidence,
        width = 11,
        height = 7.5)
 
-ggsave(paste0('../outcome/appendix/7.png'),
+ggsave(paste0('./outcome/appendix/7.png'),
        plot = fig_dalys,
        width = 11,
        height = 7.5)
 
 fig_incidence <- lapply(age_groups, plot_val,
                         data = df_global_number,
-                        measure = 'Incidence')
+                        measure = 'Incidence',
+                        ylab = 'Incidence')
 fig_incidence <- patchwork::wrap_plots(fig_incidence, ncol = 4)
 
 fig_dalys <- lapply(age_groups, plot_val,
                     data = df_global_number,
-                    measure = 'DALYs (Disability-Adjusted Life Years)')
+                    measure = 'DALYs (Disability-Adjusted Life Years)',
+                    ylab = 'DALYs')
 fig_dalys <- patchwork::wrap_plots(fig_dalys, ncol = 4)
 
-ggsave(paste0('../outcome/appendix/6.png'),
+ggsave(paste0('./outcome/appendix/6.png'),
        plot = fig_incidence,
        width = 11,
        height = 7.5)
 
-ggsave(paste0('../outcome/appendix/8.png'),
+ggsave(paste0('./outcome/appendix/8.png'),
        plot = fig_dalys,
        width = 11,
        height = 7.5)
@@ -186,7 +193,7 @@ markdown_table <- knitr::kable(df_aapc_incidence_table,
                                col.names = c('Age group', '1990 to 1999', '1999 to 2009', '2009 to 2019', '2019 to 2021'),
                                align = 'lcccc')
 write(markdown_table,
-      '../outcome/appendix/table 1.md')
+      './outcome/appendix/table 1.md')
 
 df_aapc_dalys_table <- df_aapc |>
   filter(Measure == 'DALYs') |>
@@ -201,4 +208,4 @@ markdown_table <- knitr::kable(df_aapc_dalys_table,
                                align = 'lcccc')
 
 write(markdown_table,
-      '../outcome/appendix/table 2.md')
+      './outcome/appendix/table 2.md')
