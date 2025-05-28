@@ -16,6 +16,8 @@ rm(list = ls())
 
 source('./script/function.R')
 
+source('./script/joinpoint_setting.R')
+
 df_raw_number <- read.csv('./data/database/global_regional_number.csv')
 
 df_raw_rate <- read.csv('./data/database/global_regional_rate.csv')
@@ -172,6 +174,53 @@ df_label <- bind_rows(df_region_number_label, df_region_rate_label,
                                           "Middle East & North Africa", "South Asia", "Sub-Saharan Africa"))) |> 
   arrange(Index)
 
+# model -------------------------------------------------------------------
+
+## build joinpoint model for number
+model_number_incidence <- joinpoint(filter(df_sex_number, measure_name == 'Incidence'),
+                                    year,
+                                    val,
+                                    by = Index,
+                                    run_opt = run_opt_number,
+                                    export_opt = export_opt_new)
+
+model_number_dalys <- joinpoint(filter(df_sex_number, measure_name == 'DALYs'),
+                                year,
+                                val,
+                                by = Index,
+                                run_opt = run_opt_number,
+                                export_opt = export_opt_new)
+
+## build joinpoint model for rate
+model_rate_incidence <- joinpoint(filter(df_sex_rate, measure_name == 'Incidence'),
+                                  year,
+                                  val,
+                                  by = Index,
+                                  run_opt = run_opt_rate,
+                                  export_opt = export_opt_new)
+
+model_rate_dalys <- joinpoint(filter(df_sex_rate, measure_name == 'DALYs'),
+                              year,
+                              val,
+                              by = Index,
+                              run_opt = run_opt_rate,
+                              export_opt = export_opt_new)
+
+df_aapc_sex <- rbind(
+  get_aapc(model_number_incidence) |>  mutate(Label = 'Incidence', Measure = 'Number'),
+  get_aapc(model_number_dalys) |>  mutate(Label = 'DALYs', Measure = 'Number'),
+  get_aapc(model_rate_incidence) |>  mutate(Label = 'Incidence', Measure = 'Rate'),
+  get_aapc(model_rate_dalys) |>  mutate(Label = 'DALYs', Measure = 'Rate')
+)
+
+write.csv(df_aapc_sex,
+          './outcome/appendix/table_s2_sex_group.csv',
+          row.names = FALSE)
+
+df_aapc_sex <- df_aapc_sex|> 
+  filter(Year %in% c('1990~2019', '2019~2021')) |> 
+  select(Measure, Year, var = Label, Value, p_value_label, Index = index)
+
 # AAPC -----------------------------------------------------------
 
 df_aapc_global <- read.csv('./outcome/appendix/table_s1_global_trend.csv') |> 
@@ -187,7 +236,7 @@ df_aapc_region <- read.csv('./outcome/appendix/table_s6_region_group.csv') |>
   filter(Year %in% c('1990~2019', '2019~2021')) |> 
   select(Measure, Year, var = Label, Value, p_value_label, Index = location_name)
 
-df_aapc <- rbind(df_aapc_global, df_aapc_age, df_aapc_region) |>
+df_aapc <- rbind(df_aapc_global, df_aapc_age, df_aapc_region, df_aapc_sex) |>
   mutate(Value = paste0(Value, p_value_label), 
          # remove ' SDI' in Index
          Index = str_remove(Index, ' SDI'),

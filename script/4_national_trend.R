@@ -1,41 +1,31 @@
 
 # loading packages --------------------------------------------------------
 
-library(MASS)
+# devtools::install_github("DanChaltiel/nih.joinpoint")
+library(nih.joinpoint)
+library(segmented)
 library(tidyverse)
-library(openxlsx)
+library(patchwork)
 library(paletteer)
-library(cowplot)
 library(Cairo)
 library(sf)
 
 # data --------------------------------------------------------------------
 
+rm(list = ls())
+
 df_raw_incidence <- read.csv('./data/database/incidence_rate_both.csv')
 
 df_raw_dalys <- read.csv('./data/database/dalys_rate_both.csv')
 
-## loading map data
+# Load map data
 df_map_iso <- read.csv('./data/iso_code.csv')
 
-df_map <- st_read("./data/world.zh.json") |> 
-  filter(iso_a3  != "ATA")
+df_map <- st_read('./data/Map GS(2021)648 - geojson/globalmap.shp',
+                  quiet = TRUE)
 
-df_region <- read.csv('./data/geographical.csv')
-
-## modify map data
-### combine 索马里兰 and 索马里
-somalia_combined <- df_map |> 
-  filter(name %in% c("索马里兰", "索马里")) |>
-  summarise(geometry = st_union(geometry)) |> 
-  mutate(name = "索马里",
-         full_name = "索马里",
-         iso_a3 = "SOM",
-         iso_a2 = "SO",
-         iso_n3 = '706')
-df_map <- df_map |> 
-  filter(!name %in% c("索马里兰", "索马里")) |>
-  bind_rows(somalia_combined)
+df_map_border <- st_read('./data/Map GS(2021)648 - geojson/china_border.shp',
+                         quiet = TRUE)
 
 ## get incidence rate, DALYs rate
 df_all <- df_raw_incidence |>
@@ -69,65 +59,41 @@ df_all_number <- df_raw_incidence |>
          measure_name = str_replace(measure_name, 'DALYs \\(Disability-Adjusted Life Years\\)', 'DALYs')) |> 
   select(location_name, measure_name, year, val, lower, upper)
 
+# model -------------------------------------------------------------------
+
+## build joinpoint model for number
+
+
+model_number_incidence <- joinpoint(df_global_number_incidence,
+                                    year,
+                                    val,
+                                    by = location_name,
+                                    run_opt = run_opt_number,
+                                    export_opt = export_opt_new)
+
+model_number_dalys <- joinpoint(df_global_number_dalys,
+                                year,
+                                val,
+                                by = location_name,
+                                run_opt = run_opt_number,
+                                export_opt = export_opt_new)
+
+
+model_rate_incidence <- joinpoint(df_global_rate_incidence,
+                                  year,
+                                  val,
+                                  by = location_name,
+                                  run_opt = run_opt_rate,
+                                  export_opt = export_opt_new)
+
+model_rate_dalys <- joinpoint(df_global_rate_dalys,
+                              year,
+                              val,
+                              by = location_name,
+                              run_opt = run_opt_rate,
+                              export_opt = export_opt_new)
+
 # AAPC -----------------------------------------------------------
-
-## calculate AAPC
-calculate_aapc <- function(data, measure_set) {
-  data_filtered <- data |> 
-    filter(measure == measure_set) |>
-    arrange(year)
-  
-  model <- tryCatch({MASS::glm.nb(val ~ year, data = data_filtered)},
-    error = function(e) {
-      print(paste('Model fitting failed:', measure_set))
-      return(NULL)
-    }
-  )
-  
-  # if model fitting failed or total number of cases lower than 10
-  if (is.null(model) | sum(data_filtered$val) < 10) {
-    return(list(AAPC = NA, CI_lower = NA, CI_upper = NA, P_value = NA))
-  }
-  
-  # extract slope, se, p_value
-  slope <- coef(model)["year"]
-  slope_se <- summary(model)$coefficients["year", "Std. Error"]
-  p_value <- summary(model)$coefficients["year", "Pr(>|z|)"]
-  
-  # calculate AAPC
-  aapc <- (exp(slope) - 1) * 100
-  ci_lower <- (exp(slope - 1.96 * slope_se) - 1) * 100
-  ci_upper <- (exp(slope + 1.96 * slope_se) - 1) * 100
-  
-  
-  # return result
-  result <- list(
-    AAPC = aapc,
-    CI_lower = ci_lower,
-    CI_upper = ci_upper,
-    P_value = p_value
-  )
-  return(result)
-}
-
-df_all_trend <- df_all_number |>
-  mutate(measure = paste(location_name, measure_name, sep = '--'),
-         val = round(val)) |> 
-  # get data before 2019
-  filter(year <= 2019)
-
-df_aapc <- data.frame(measure = unique(df_all_trend$measure)) |> 
-  rowwise() |> 
-  mutate(aapc_results = map(measure, ~calculate_aapc(df_all_trend, .x))) |> 
-  unnest_wider(col = aapc_results) |> 
-  # round result
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~round(., 2)),
-         P_value = case_when(P_value < 0.001 ~ '<0.001',
-                             TRUE ~ as.character(round(P_value, 3))),
-         `AAPC (95%CI)` = paste0(AAPC, '<br>(', CI_lower, '~', CI_upper, ')'),
-         `p value` = P_value) |> 
-  # split measure
-  separate(measure, c('location_name', 'measure_name'), sep = '--')
 
 df_incidence_aapc <- df_aapc |> 
   filter(measure_name == 'Incidence') |> 
