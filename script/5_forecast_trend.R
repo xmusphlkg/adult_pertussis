@@ -47,26 +47,13 @@ df_global <- read.csv('./data/database/global_regional_number.csv') |>
 
 df_map_iso <- read.csv('./data/iso_code.csv')
 
-df_map <- st_read("./data/world.zh.json") |> 
-  filter(iso_a3  != "ATA")
+df_map <- st_read('./data/Map GS(2021)648 - geojson/globalmap.shp',
+                  quiet = TRUE)
+
+df_map_border <- st_read('./data/Map GS(2021)648 - geojson/china_border.shp',
+                         quiet = TRUE)
 
 df_region <- read.csv('./data/geographical.csv')
-
-## modify map data
-### combine 索马里兰 and 索马里
-somalia_combined <- df_map |> 
-  filter(name %in% c("索马里兰", "索马里")) |>
-  summarise(geometry = st_union(geometry)) |> 
-  mutate(name = "索马里",
-         full_name = "索马里",
-         iso_a3 = "SOM",
-         iso_a2 = "SO",
-         iso_n3 = '706')
-df_map <- df_map |> 
-  filter(!name %in% c("索马里兰", "索马里")) |>
-  bind_rows(somalia_combined)
-
-remove(somalia_combined)
 
 df_region_sdi <- read.xlsx('./data/IHME_GBD_SDI_2021_SDI_QUINTILES_Y2024M05D16.xlsx')
 
@@ -84,8 +71,7 @@ df_incidence <- rbind(df_raw_incidence_male, df_raw_incidence_female) |>
   select(location_id, location_name, sex_name, age_name, year, val) |> 
   left_join(select(df_map_iso, location_id, SDI.Quintile), by = 'location_id') |> 
   mutate(SDI.Quintile = if_else(is.na(SDI.Quintile), 'Missing', SDI.Quintile)) |> 
-  rename(SDI = SDI.Quintile) |> 
-  select(-location_id)
+  rename(SDI = SDI.Quintile)
 
 df_dalys <- rbind(df_raw_dalys_male, df_raw_dalys_female) |> 
   rename(location_id = location) |>
@@ -95,8 +81,7 @@ df_dalys <- rbind(df_raw_dalys_male, df_raw_dalys_female) |>
   select(location_id, location_name,  sex_name, age_name, year, val) |> 
   left_join(select(df_map_iso, location_id, SDI.Quintile), by = 'location_id') |>
   mutate(SDI.Quintile = if_else(is.na(SDI.Quintile), 'Missing', SDI.Quintile)) |> 
-  rename(SDI = SDI.Quintile) |> 
-  select(-location_id)
+  rename(SDI = SDI.Quintile)
 
 rm(df_raw_incidence_male, df_raw_incidence_female, df_raw_dalys_female, df_raw_dalys_male)
 
@@ -216,11 +201,11 @@ i <- 1
 plot_map <- function(data, i) {
   # get data
   data <- data |> 
-    left_join(df_map_iso, by = c("location_name" = "location_name_1")) |> 
+    left_join(df_map_iso, by = c("location_id" = "location_id")) |> 
     select(ISO3, val)
   
   # check all location in the map
-  check_result <- data$ISO3[!data$ISO3 %in% df_map$iso_a3]
+  check_result <- data$ISO3[!data$ISO3 %in% df_map$SOC]
   
   if(length(check_result) > 0) {
     print(paste('Missing location:', check_result))
@@ -228,10 +213,11 @@ plot_map <- function(data, i) {
   
   # join map data by ISO3
   data_map <- df_map |> 
-    left_join(data, by = c('iso_a3' = 'ISO3'))
+    left_join(data, by = c('SOC' = 'ISO3'))
   
   # plot
   fig_base <- ggplot(data = data_map) +
+    geom_sf(data = df_map_border, color = 'grey', fill = NA) +
     geom_sf(aes(fill = val)) +
     # add x, y tick labels
     theme(axis.text.x = element_text(size = 8),
@@ -240,6 +226,7 @@ plot_map <- function(data, i) {
                        expand = c(0, 0)) + 
     scale_y_continuous(limits = c(-60, 75)) +
     scale_fill_gradientn(colors = paletteer_d("MetBrewer::Hiroshige", direction = 1),
+                         na.value = 'white',
                          breaks = seq(0, 1, 0.2),
                          labels = scales::percent_format(accuracy = 1),
                          limits = c(0, 1),
@@ -293,13 +280,13 @@ plot_map <- function(data, i) {
 # visual by location
 data_total_location_incidence <- df_incidence |> 
   filter(year > 2019) |> 
-  group_by(location_name, year) |>
+  group_by(location_id, location_name, year) |>
   summarise(val = sum(val),
             .groups = 'drop') |>
   left_join(get(paste0('df_', df_list[i], '_forecast_location')),
             by = c('location_name', 'year')) |> 
   rename(Forecasted = val.y, Observed = val.x) |> 
-  group_by(location_name) |>
+  group_by(location_id, location_name) |>
   summarise(Observed = sum(Observed),
             Forecasted = sum(Forecasted),
             .groups = 'drop') |>
@@ -314,13 +301,13 @@ fig2 <- plot_map(data_total_location_incidence, 1)
 # visual by location
 data_total_location_dalys <- df_dalys |> 
   filter(year > 2019) |> 
-  group_by(location_name, year) |>
+  group_by(location_id, location_name, year) |>
   summarise(val = sum(val),
             .groups = 'drop') |>
   left_join(get(paste0('df_', df_list[i], '_forecast_location')),
             by = c('location_name', 'year')) |> 
   rename(Forecasted = val.y, Observed = val.x) |> 
-  group_by(location_name) |>
+  group_by(location_id, location_name) |>
   summarise(Observed = sum(Observed),
             Forecasted = sum(Forecasted),
             .groups = 'drop') |>
@@ -400,7 +387,7 @@ plot_fun <- function(i){
     scale_color_manual(values = c('Forecasted' = '#00798CFF', 'Observed' = '#EDAE49FF')) +
     scale_fill_manual(values = c('Increased' = '#D1495BFF', 'Decreased' = '#00A6A6FF')) +
     scale_x_continuous(breaks = seq(2011, 2021, 2)) +
-    scale_y_continuous(labels = scales::comma,
+    scale_y_continuous(labels = scientific_10,
                        expand = expansion(mult = c(0, 0)),
                        limits = range(breaks)) +
     theme_bw()+
@@ -432,7 +419,7 @@ plot_fun <- function(i){
     scale_color_manual(values = c('Forecasted' = '#00798CFF', 'Observed' = '#EDAE49FF')) +
     scale_fill_manual(values = c('Increased' = '#D1495BFF', 'Decreased' = '#00A6A6FF')) +
     scale_x_continuous(breaks = seq(2011, 2021, 2)) +
-    scale_y_continuous(labels = scales::comma,
+    scale_y_continuous(labels = scientific_10,
                        expand = expansion(mult = c(0, 0)),
                        limits = range(breaks)) +
     theme_bw()+

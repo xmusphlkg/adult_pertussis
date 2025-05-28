@@ -31,6 +31,8 @@ df_map <- st_read('./data/Map GS(2021)648 - geojson/globalmap.shp',
 df_map_border <- st_read('./data/Map GS(2021)648 - geojson/china_border.shp',
                          quiet = TRUE)
 
+df_region <- read.csv('./data/geographical.csv')
+
 ## get incidence rate, DALYs rate
 df_all_rate <- df_raw_incidence |>
   rbind(df_raw_dalys) |>
@@ -119,25 +121,37 @@ df_aapc <- rbind(
   get_aapc(model_number_dalys) |>  mutate(Label = 'DALYs', Measure = 'Number'),
   get_aapc(model_rate_incidence) |>  mutate(Label = 'Incidence', Measure = 'Rate'),
   get_aapc(model_rate_dalys) |>  mutate(Label = 'DALYs', Measure = 'Rate')
-)
+) |> 
+  mutate(aapc = as.numeric(aapc))
+
+write.csv(df_aapc,
+          './outcome/national_aapc.csv',
+          row.names = FALSE)
 
 df_incidence_aapc <- df_aapc |> 
-  filter(measure_name == 'Incidence') |> 
-  select(location_name, val = AAPC)
+  filter(Label == 'Incidence', Measure == 'Rate', Year == '1990~2019') |> 
+  select(location_name, val = aapc)
 
 df_dalys_aapc <- df_aapc |>
-  filter(measure_name == 'DALYs') |>
-  select(location_name, val = AAPC)
+  filter(Label == 'DALYs', Measure == 'Rate', Year == '1990~2019') |>
+  select(location_name, val = aapc)
 
 # visualization -----------------------------------------------------------
 
 df_names <- c('df_incidence_2021', 'df_dalys_2021', 'df_incidence_aapc', 'df_dalys_aapc')
 legend_names <- c('Incidence rate\n(per 100,000), 2021',
                   'DALYs rate\n(per 100,000), 2021',
-                  'AAPC of incidence,\n1990-2019',
-                  'AAPC of DALYs,\n1990-2019')
+                  'AAPC of incidence rate,\n1990-2019',
+                  'AAPC of DALYs rate,\n1990-2019')
 
-i <- 1
+legend_lists <- list(
+  seq(from = 0, to = 24, by = 3),
+  seq(from = 0, to = 24, by = 3),
+  seq(from = -16, to = 4, by = 2),
+  seq(from = -16, to = 4, by = 2)
+)
+
+i <- 4
 
 ## plot
 plot_map <- function(i, title) {
@@ -146,24 +160,22 @@ plot_map <- function(i, title) {
     left_join(df_map_iso, by = c("location_name" = "location_name_1"))
   
   # check all location in the map
-  check_result <- data$ISO3[!data$ISO3 %in% df_map$iso_a3]
+  check_result <- data$ISO3[!data$ISO3 %in% df_map$SOC]
   
   if(length(check_result) > 0) {
     print(paste('Missing location:', check_result))
   }
 
   # create legend group
-  legend_breaks <- seq(from = pretty(data$val, n = 5)[1],
-                       by = ceiling(diff(range(data$val, na.rm = T))/10),
-                       length.out = 10)
+  legend_breaks <- legend_lists[[i]]
   data$val_group <- cut(data$val,
-                           breaks = legend_breaks,
-                           right = FALSE,
-                           include.lowest = TRUE)
+                        breaks = legend_breaks,
+                        right = FALSE,
+                        include.lowest = TRUE)
   
   # join map data by ISO3
   data_map <- df_map |> 
-    left_join(data, by = c('iso_a3' = 'ISO3'))
+    left_join(data, by = c('SOC' = 'ISO3'))
   
   # plot
   fig_base <- ggplot(data = data_map) +
@@ -175,8 +187,8 @@ plot_map <- function(i, title) {
                        expand = c(0, 0)) + 
     scale_y_continuous(limits = c(-60, 75)) +
     scale_fill_manual(values = paletteer_d("MetBrewer::Hiroshige", direction = -1),
-                      na.translate = FALSE,
-                      na.value = 'white') +
+                      na.value = 'grey',
+                      na.translate = FALSE) +
     theme_bw() +
     theme(panel.grid = element_blank(),
           axis.text = element_blank(),
