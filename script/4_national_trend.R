@@ -14,6 +14,10 @@ library(sf)
 
 rm(list = ls())
 
+source('./script/function.R')
+
+source('./script/joinpoint_setting.R')
+
 df_raw_incidence <- read.csv('./data/database/incidence_rate_both.csv')
 
 df_raw_dalys <- read.csv('./data/database/dalys_rate_both.csv')
@@ -28,7 +32,7 @@ df_map_border <- st_read('./data/Map GS(2021)648 - geojson/china_border.shp',
                          quiet = TRUE)
 
 ## get incidence rate, DALYs rate
-df_all <- df_raw_incidence |>
+df_all_rate <- df_raw_incidence |>
   rbind(df_raw_dalys) |>
   rename(location_id = location) |>
   filter(age_name == '20+ years' &
@@ -39,10 +43,10 @@ df_all <- df_raw_incidence |>
 
 rm(df_raw_incidence, df_raw_dalys)
 
-df_incidence_2021 <- df_all |>
+df_incidence_2021 <- df_all_rate |>
   filter(year == 2021 & measure_name == 'Incidence')
 
-df_dalys_2021 <- df_all |>
+df_dalys_2021 <- df_all_rate |>
   filter(year == 2021 & measure_name == 'DALYs')
 
 df_raw_incidence <- read.csv('./data/database/incidence_number_both.csv')
@@ -59,11 +63,27 @@ df_all_number <- df_raw_incidence |>
          measure_name = str_replace(measure_name, 'DALYs \\(Disability-Adjusted Life Years\\)', 'DALYs')) |> 
   select(location_name, measure_name, year, val, lower, upper)
 
+rm(df_raw_incidence, df_raw_dalys)
+
+df_global_number_incidence <- df_all_number |> 
+  filter(measure_name == 'Incidence') |> 
+  select(year, location_name, val, lower, upper)
+
+df_global_number_dalys <- df_all_number |>
+  filter(measure_name == 'DALYs') |> 
+  select(year, location_name, val, lower, upper)
+
+df_global_rate_incidence <- df_all_rate |>
+  filter(measure_name == 'Incidence') |> 
+  select(year, location_name, val, lower, upper)
+
+df_global_rate_dalys <- df_all_rate |>
+  filter(measure_name == 'DALYs') |> 
+  select(year, location_name, val, lower, upper)
+
 # model -------------------------------------------------------------------
 
 ## build joinpoint model for number
-
-
 model_number_incidence <- joinpoint(df_global_number_incidence,
                                     year,
                                     val,
@@ -77,7 +97,6 @@ model_number_dalys <- joinpoint(df_global_number_dalys,
                                 by = location_name,
                                 run_opt = run_opt_number,
                                 export_opt = export_opt_new)
-
 
 model_rate_incidence <- joinpoint(df_global_rate_incidence,
                                   year,
@@ -94,6 +113,13 @@ model_rate_dalys <- joinpoint(df_global_rate_dalys,
                               export_opt = export_opt_new)
 
 # AAPC -----------------------------------------------------------
+
+df_aapc <- rbind(
+  get_aapc(model_number_incidence) |>  mutate(Label = 'Incidence', Measure = 'Number'),
+  get_aapc(model_number_dalys) |>  mutate(Label = 'DALYs', Measure = 'Number'),
+  get_aapc(model_rate_incidence) |>  mutate(Label = 'Incidence', Measure = 'Rate'),
+  get_aapc(model_rate_dalys) |>  mutate(Label = 'DALYs', Measure = 'Rate')
+)
 
 df_incidence_aapc <- df_aapc |> 
   filter(measure_name == 'Incidence') |> 

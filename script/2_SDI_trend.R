@@ -61,7 +61,6 @@ df_global_rate <- df_rate |>
          measure_name %in% c('DALYs (Disability-Adjusted Life Years)', 'Incidence')) |>
   arrange(measure_name, location_name, year)
 
-
 df_global_rate_incidence <- df_global_rate |>
   filter(measure_name == 'Incidence') |> 
   select(year, location_name, val, lower, upper)
