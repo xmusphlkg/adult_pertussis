@@ -129,16 +129,30 @@ rm(fig, fig_a, fig_b, fig_s1, fig_s1_a, fig_s1_b)
 
 # AAPC ------------------------------------------------------------------------
 
-df_aapc_incidence <- get_aapc(model_number_incidence) |> 
-  mutate(var = 'Incidence')
+df_aapc_incidence_number <- get_aapc(model_number_incidence) |> 
+  mutate(var = 'Incidence', 
+         Measure = 'Number')
 
-df_aapc_dalys <- get_aapc(model_number_dalys) |> 
-  mutate(var = 'DALYs')
+df_aapc_dalys_number <- get_aapc(model_number_dalys) |> 
+  mutate(var = 'DALYs',
+         Measure = 'Number')
 
-df_aapc <- rbind(df_aapc_incidence, df_aapc_dalys)
+df_aapc_incidence_rate <- get_aapc(model_rate_incidence) |> 
+  mutate(var = 'Incidence',
+         Measure = 'Rate')
+
+df_aapc_dalys_rate <- get_aapc(model_rate_dalys) |>
+  mutate(var = 'DALYs',
+         Measure = 'Rate')
+
+df_aapc <- rbind(df_aapc_incidence_number,
+                 df_aapc_dalys_number,
+                 df_aapc_incidence_rate,
+                 df_aapc_dalys_rate)
 
 # save to md file
 markdown_table <- df_aapc |> 
+  filter(Measure == 'Number') |>
   select(var, Year, Value, p_value) |>
   mutate(p_value = case_when(p_value < 0.001 ~ '<0.001',
                              TRUE ~ formatC(p_value, format = "f", digits = 2))) |> 
@@ -152,8 +166,7 @@ markdown_table <- df_aapc |>
 
 write(markdown_table, './outcome/appendix/table_s1_global_trend.md')
 
-write.csv(df_aapc |> 
-            mutate(Measure = 'Number'),
+write.csv(df_aapc,
           './outcome/appendix/table_s1_global_trend.csv',
           row.names = FALSE)
 

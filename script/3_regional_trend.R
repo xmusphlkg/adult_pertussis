@@ -243,10 +243,8 @@ df_aapc <- rbind(df_aapc_global, df_aapc_age, df_aapc_region, df_aapc_sex) |>
          # remove ' - WB' in Index
          Index = str_remove(Index, ' - WB')) |>
   select(-p_value_label) |>
-  pivot_wider(names_from = Year,
+  pivot_wider(names_from = c(Measure, Year),
               values_from = Value) |>
-  # split measure
-  rename(`AAPC (95%CI)\n1990-2019` = '1990~2019', `AAPC (95%CI)\n2019-2021` = '2019~2021') |>
   mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
                                           'High', "High-middle", "Middle", "Low-middle", "Low",
                                           '20-24 years', '25-29 years', '30-34 years', '35-39 years',
@@ -259,12 +257,13 @@ df_aapc <- rbind(df_aapc_global, df_aapc_age, df_aapc_region, df_aapc_sex) |>
 
 df_output_inci <- df_label |> 
   select(Index, contains('Incidence')) |> 
-  left_join(filter(df_aapc, var == 'Incidence', Measure == 'Number'), by = 'Index') |> 
+  left_join(filter(df_aapc, var == 'Incidence'), by = 'Index') |> 
   select(Index,
          `Number Incidence 1990`, `Rate Incidence 1990`,
          `Number Incidence 2019`, `Rate Incidence 2019`,
          `Number Incidence 2021`, `Rate Incidence 2021`,
-         `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`)
+         `Number_1990~2019`, `Number_2019~2021`,
+         `Rate_1990~2019`, `Rate_2019~2021`)
 
 # save to md file
 markdown_table <- knitr::kable(df_output_inci,
@@ -276,19 +275,22 @@ markdown_table <- knitr::kable(df_output_inci,
                                              '2019<br>Incidence rate (per 100,000)',
                                              '2021<br>Incidence',
                                              '2021<br>Incidence rate (per 100,000)',
-                                             'AAPC (95%CI)<br>1990-2019',
-                                             'AAPC (95%CI)<br>2019-2021'),
+                                             'Incidence number<br>AAPC (95%CI)<br>1990-2019',
+                                             'Incidence number<br>AAPC (95%CI)<br>2019-2021',
+                                             'Incidence rate<br>AAPC (95%CI)<br>1990-2019',
+                                             'Incidence rate<br>AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
 write(markdown_table, './outcome/appendix/table_s2_incidence_trend.md')
 
 df_output_daly <- df_label |> 
   select(Index, contains('DALYs')) |> 
-  left_join(filter(df_aapc, var == 'DALYs', Measure == 'Number'), by = 'Index') |> 
+  left_join(filter(df_aapc, var == 'DALYs'), by = 'Index') |> 
   select(Index,
          `Number DALYs 1990`, `Rate DALYs 1990`,
          `Number DALYs 2019`, `Rate DALYs 2019`,
          `Number DALYs 2021`, `Rate DALYs 2021`,
-         `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`)
+         `Number_1990~2019`, `Number_2019~2021`,
+         `Rate_1990~2019`, `Rate_2019~2021`)
 
 # save to md file
 markdown_table <- knitr::kable(df_output_daly,
@@ -300,8 +302,10 @@ markdown_table <- knitr::kable(df_output_daly,
                                              '2019<br>DALYs rate (per 100,000)',
                                              '2021<br>DALYs',
                                              '2021<br>DALYs rate (per 100,000)',
-                                             'AAPC (95%CI)<br>1990-2019',
-                                             'AAPC (95%CI)<br>2019-2021'),
+                                             'DALYs number<br>AAPC (95%CI)<br>1990-2019',
+                                             'DALYs number<br>AAPC (95%CI)<br>2019-2021',
+                                             'DALYs rate<br>AAPC (95%CI)<br>1990-2019',
+                                             'DALYs rate<br>AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
 
 write(markdown_table, './outcome/appendix/table_s3_dalys_trend.md')
