@@ -1,11 +1,20 @@
 
 # loading packages --------------------------------------------------------
 
-library(MASS)
+# devtools::install_github("DanChaltiel/nih.joinpoint")
+library(nih.joinpoint)
+library(segmented)
 library(tidyverse)
+library(patchwork)
+library(paletteer)
+library(Cairo)
 library(openxlsx)
 
 # data --------------------------------------------------------------------
+
+rm(list = ls())
+
+source('./script/function.R')
 
 df_raw_number <- read.csv('./data/database/global_regional_number.csv')
 
@@ -165,72 +174,30 @@ df_label <- bind_rows(df_region_number_label, df_region_rate_label,
 
 # AAPC -----------------------------------------------------------
 
-## calculate AAPC
-calculate_aapc <- function(data, measure_set) {
-  data_filtered <- data |> 
-    filter(measure == measure_set) |>
-    arrange(year) |> 
-    mutate(val = round(val))
-  
-  # get log value
-  # data_filtered$log_val <- log(data_filtered$val)
-  # model <- lm(log_val ~ year, data = data_filtered)
-  # model <- glm(val ~ year, family = poisson(link = "log"), data = data_filtered)
-  model <- MASS::glm.nb(val ~ year, data = data_filtered)
-  
-  # extract slope, se, p_value
-  slope <- coef(model)["year"]
-  slope_se <- summary(model)$coefficients["year", "Std. Error"]
-  p_value <- summary(model)$coefficients["year", "Pr(>|z|)"]
-  
-  # calculate AAPC
-  aapc <- (exp(slope) - 1) * 100
-  ci_lower <- (exp(slope - 1.96 * slope_se) - 1) * 100
-  ci_upper <- (exp(slope + 1.96 * slope_se) - 1) * 100
+df_aapc_global <- read.csv('./outcome/appendix/table_s1_global_trend.csv') |> 
+  filter(Year %in% c('1990~2019', '2019~2021')) |> 
+  select(Measure, Year, var, Value, p_value_label) |> 
+  mutate(Index = 'Global')
 
-  
-  # return result
-  result <- list(
-    AAPC = aapc,
-    CI_lower = ci_lower,
-    CI_upper = ci_upper,
-    P_value = p_value
-  )
-  return(result)
-}
+df_aapc_age <- read.csv('./outcome/appendix/table_s4_age_group.csv') |> 
+  filter(Year %in% c('1990~2019', '2019~2021')) |> 
+  select(Measure, Year, var = Label, Value, p_value_label, Index = age_name)
 
-df_global_trend <- rbind(df_region_number, df_sex_number, df_age_number) |>
-  # combined Index, metric_name, measure_name
-  mutate(measure = paste(Index, metric_name, measure_name, sep = '--'))
+df_aapc_region <- read.csv('./outcome/appendix/table_s6_region_group.csv') |> 
+  filter(Year %in% c('1990~2019', '2019~2021')) |> 
+  select(Measure, Year, var = Label, Value, p_value_label, Index = location_name)
 
-df_aapc_1 <- data.frame(measure = unique(df_global_trend$measure)) |> 
-  rowwise() |> 
-  mutate(aapc_results = map(measure, ~calculate_aapc(filter(df_global_trend, year <= 2019), .x))) |> 
-  unnest_wider(col = aapc_results) |> 
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~formatC(., format = 'f', digits = 2)),
-         P_value = case_when(P_value < 0.001 ~ '***',
-                             P_value < 0.01 ~ '**',
-                             P_value < 0.05 ~ '*',
-                             TRUE ~ ''),
-         `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |> 
-  select(measure, `AAPC (95%CI)\n1990-2019` = `AAPC (95%CI)`)
-  
-df_aapc_2 <- data.frame(measure = unique(df_global_trend$measure)) |>
-  rowwise() |>
-  mutate(aapc_results = map(measure, ~calculate_aapc(filter(df_global_trend, year >= 2019), .x))) |>
-  unnest_wider(col = aapc_results) |> 
-  mutate(across(c(AAPC, CI_lower, CI_upper), ~formatC(., format = 'f', digits = 2)),
-         P_value = case_when(P_value < 0.001 ~ '***',
-                             P_value < 0.01 ~ '**',
-                             P_value < 0.05 ~ '*',
-                             TRUE ~ ''),
-         `AAPC (95%CI)` = paste0(AAPC, ' (', CI_lower, '~', CI_upper, ')', P_value)) |>
-  select(measure, `AAPC (95%CI)\n2019-2021` = `AAPC (95%CI)`)
-  
-df_aapc <- left_join(df_aapc_1, df_aapc_2, by = 'measure') |>
+df_aapc <- rbind(df_aapc_global, df_aapc_age, df_aapc_region) |>
+  mutate(Value = paste0(Value, p_value_label), 
+         # remove ' SDI' in Index
+         Index = str_remove(Index, ' SDI'),
+         # remove ' - WB' in Index
+         Index = str_remove(Index, ' - WB')) |>
+  select(-p_value_label) |>
+  pivot_wider(names_from = Year,
+              values_from = Value) |>
   # split measure
-  separate(measure, c('Index', 'metric_name', 'measure_name'), sep = '--') |>
-  select(Index, measure_name, `AAPC (95%CI)\n1990-2019`, `AAPC (95%CI)\n2019-2021`) |>
+  rename(`AAPC (95%CI)\n1990-2019` = '1990~2019', `AAPC (95%CI)\n2019-2021` = '2019~2021') |>
   mutate(Index = factor(Index, levels = c('Global', 'Female', 'Male',
                                           'High', "High-middle", "Middle", "Low-middle", "Low",
                                           '20-24 years', '25-29 years', '30-34 years', '35-39 years',
@@ -243,7 +210,7 @@ df_aapc <- left_join(df_aapc_1, df_aapc_2, by = 'measure') |>
 
 df_output_inci <- df_label |> 
   select(Index, contains('Incidence')) |> 
-  left_join(filter(df_aapc, measure_name == 'Incidence'), by = 'Index') |> 
+  left_join(filter(df_aapc, var == 'Incidence', Measure == 'Number'), by = 'Index') |> 
   select(Index,
          `Number Incidence 1990`, `Rate Incidence 1990`,
          `Number Incidence 2019`, `Rate Incidence 2019`,
@@ -263,11 +230,11 @@ markdown_table <- knitr::kable(df_output_inci,
                                              'AAPC (95%CI)<br>1990-2019',
                                              'AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
-write(markdown_table, './outcome/table_2_incidence_trend.md')
+write(markdown_table, './outcome/appendix/table_s2_incidence_trend.md')
 
 df_output_daly <- df_label |> 
   select(Index, contains('DALYs')) |> 
-  left_join(filter(df_aapc, measure_name == 'DALYs'), by = 'Index') |> 
+  left_join(filter(df_aapc, var == 'DALYs', Measure == 'Number'), by = 'Index') |> 
   select(Index,
          `Number DALYs 1990`, `Rate DALYs 1990`,
          `Number DALYs 2019`, `Rate DALYs 2019`,
@@ -287,4 +254,5 @@ markdown_table <- knitr::kable(df_output_daly,
                                              'AAPC (95%CI)<br>1990-2019',
                                              'AAPC (95%CI)<br>2019-2021'),
                                escape = FALSE)
-write(markdown_table, './outcome/table_3_dalys_trend.md')
+
+write(markdown_table, './outcome/appendix/table_s3_dalys_trend.md')

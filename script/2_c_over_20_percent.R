@@ -1,5 +1,8 @@
 
-# ratio data --------------------------------------------------------------------
+library(sf)
+library(cowplot)
+
+# read data --------------------------------------------------------------------
 
 rm(list = ls())
 
@@ -8,25 +11,13 @@ df_map_iso <- read.csv('./data/iso_code.csv')
 
 df_region <- read.csv('./data/geographical.csv')
 
-df_map <- st_read("./data/world.zh.json") |> 
-  filter(iso_a3  != "ATA")
+# Load map data
+df_map <- st_read('./data/Map GS(2021)648 - geojson/globalmap.shp',
+                  quiet = TRUE)
 
+df_map_border <- st_read('./data/Map GS(2021)648 - geojson/china_border.shp',
+                         quiet = TRUE)
 ## modify map data
-### combine 索马里兰 and 索马里
-somalia_combined <- df_map |> 
-  filter(name %in% c("索马里兰", "索马里")) |>
-  summarise(geometry = st_union(geometry)) |> 
-  mutate(name = "索马里",
-         full_name = "索马里",
-         iso_a3 = "SOM",
-         iso_a2 = "SO",
-         iso_n3 = '706')
-df_map <- df_map |> 
-  filter(!name %in% c("索马里兰", "索马里")) |>
-  bind_rows(somalia_combined)
-
-remove(somalia_combined)
-
 df_age <- read.csv('./data/allage/IHME-GBD_2021_DATA-79cf5de6-1/IHME-GBD_2021_DATA-79cf5de6-1.csv')
 
 # clean data
@@ -63,10 +54,10 @@ df_dalys_2019 <- df_age |>
 # ratio map -------------------------------------------------------------------
 
 df_names <- c('df_incidence_2021', 'df_dalys_2021', 'df_incidence_2019', 'df_dalys_2019')
-legend_names <- c('Percentage of 20+ years\nin Incidence, 2019',
-                  'Percentage of 20+ years\nin DALYs, 2019',
-                  'Percentage of 20+ years\nin Incidence, 2021',
-                  'Percentage of 20+ years\nin DALYs, 2021')
+legend_names <- c('Percentage of 20+ years in Incidence, 2019',
+                  'Percentage of 20+ years in DALYs, 2019',
+                  'Percentage of 20+ years in Incidence, 2021',
+                  'Percentage of 20+ years in DALYs, 2021')
 # create legend group
 legend_breaks <- pretty(df_age$val, n = 10)
 
@@ -79,7 +70,7 @@ plot_map <- function(i) {
     select(ISO3, val)
   
   # check all location in the map
-  check_result <- data$ISO3[!data$ISO3 %in% df_map$iso_a3]
+  check_result <- data$ISO3[!data$ISO3 %in% df_map$SOC]
   
   if(length(check_result) > 0) {
     print(paste('Missing location:', check_result))
@@ -87,10 +78,11 @@ plot_map <- function(i) {
   
   # join map data by ISO3
   data_map <- df_map |> 
-    left_join(data, by = c('iso_a3' = 'ISO3'))
+    left_join(data, by = c('SOC' = 'ISO3'))
   
   # plot
   fig_base <- ggplot(data = data_map) +
+    geom_sf(data = df_map_border, color = 'grey', fill = NA) +
     geom_sf(aes(fill = val)) +
     # add x, y tick labels
     theme(axis.text.x = element_text(size = 8),
@@ -145,7 +137,7 @@ plot_map <- function(i) {
   
   fig <- plot_grid(fig_main, fig_region, nrow = 2, ncol = 1, rel_heights = c(3, 1.2))
   
-  ggsave(paste0('./outcome/appendix/', i, '.png'),
+  ggsave(paste0('./outcome/appendix/fig_s', i+1, '.png'),
          plot = fig,
          width = 11,
          height = 7.5)
@@ -153,6 +145,7 @@ plot_map <- function(i) {
   return(i)
 }
 
+# plot all maps
 fig_A <- plot_map(1)
 fig_B <- plot_map(2)
 fig_C <- plot_map(3)
