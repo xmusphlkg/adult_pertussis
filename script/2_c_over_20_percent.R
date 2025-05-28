@@ -1,4 +1,8 @@
 
+library(tidyverse)
+library(patchwork)
+library(paletteer)
+library(Cairo)
 library(sf)
 library(cowplot)
 
@@ -92,6 +96,7 @@ plot_map <- function(i) {
     scale_y_continuous(limits = c(-60, 75)) +
     scale_fill_gradientn(colors = paletteer_d("MetBrewer::Hiroshige", direction = 1),
                          breaks = legend_breaks,
+                         na.value = 'white',
                          labels = scales::percent_format(accuracy = 1),
                          limits = range(legend_breaks)) +
     theme_bw() +
