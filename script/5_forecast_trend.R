@@ -333,7 +333,7 @@ write.xlsx(list('Incidence' = data_total_location_incidence,
 
 # save line ----------------------------------------------------------------
 
-legend_names <- c('Incidence', 'DALYs')
+legend_names <- c('Incidence number', 'DALYs number')
 
 plot_fun <- function(i){
   ## real data
